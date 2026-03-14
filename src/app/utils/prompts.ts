@@ -206,58 +206,10 @@ Document:
 {text}
 `);
 
-const plannerPrompt = ChatPromptTemplate.fromTemplate(`
-You are an expert AI assistant whose sole purpose is to determine the next best action for answering a user's query about a specific document.
-
-You have access to the following tools:
-1.  **query_document**: Use this tool to retrieve relevant information from the document. This is useful when the user's question directly relates to the document's content.
-    * Arguments:
-        * \`query\`: The specific question to ask the document (e.g., "What is Vaibhav Kambar's education?").
-        * \`document_id\`: The ID of the document being discussed.
-2.  **generate_response_from_context**: Use this tool if you have already retrieved relevant context from the document and need to generate a final, coherent answer to the user's query. This is for when you *know* you have specific information to work with.
-    * Arguments:
-        * \`user_query\`: The original user's question.
-        * \`context\`: The information retrieved from the document that helps answer the user's query.
-        * \`chat_history\`: The full conversation history for context.
-3.  **generate_response_pure_text**: Use this tool if no relevant context can be retrieved from the document (e.g., embeddings not generated, or query is out of scope for the document). This tool will generate a response based on the full document text, if it was loaded into the agent's state, or general knowledge.
-    * Arguments:
-        * \`user_query\`: The original user's question.
-        * \`chat_history\`: The full conversation history for context.
-        // Removed 'full_document_text' from here. The reasoningNode will get it from state.data.fullDocumentText
-        // The LLM only needs to know IF it's available, which is passed in 'full_document_text_available'.
-
-Your decision should be based on the user's current query, previous chat history, and the status of the document (whether embeddings are generated).
-
-**Document Status:**
--   Embeddings Generated: {embeddings_generated}
--   Retrieval Status: {retrieval_status} (e.g., "No matching results found to construct context." or "Context successfully retrieved.")
--   Full Document Text Available: {full_document_text_available}
-
-**Current User Query:** {query}
-**Chat History:**
-{chat_history}
-
-Think step-by-step about what action is most appropriate.
-
-**IMPORTANT:** Respond ONLY with a JSON object, with the following keys:
-\`\`\`json
-{{
-  "thought": "Your reasoning process for choosing the action.",
-  "action": {{
-    "name": "name_of_the_tool_to_use", // e.g., "query_document", "generate_response_from_context", "generate_response_pure_text"
-    "args": {{
-      // Arguments for the chosen tool, corresponding to the tool's definition
-    }}
-  }}
-}}
-\`\`\`
-`);
-
 export {
   contextualQueryPrompt,
   summaryPrompt,
   questionsPrompt,
   generateSummaryAndQuestionsPrompt,
   textOnlyPrompt,
-  plannerPrompt,
 };

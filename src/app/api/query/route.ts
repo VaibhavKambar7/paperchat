@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { MainAgent } from "@/agents/main-agent";
 import { ChatHistory } from "@/service/llmService";
+import { answerQuestion } from "@/service/answerQuestion";
 import prisma from "@/lib/prisma";
 
 export async function POST(req: Request) {
@@ -22,44 +22,26 @@ export async function POST(req: Request) {
     const existingChatHistory: ChatHistory = (document?.chatHistory ||
       []) as ChatHistory;
 
-    const agent = new MainAgent({ name: "QueryResponder" });
-
-    let fullCollectedResponseForHistory = "";
-
     const clientFacingStream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
 
         const onChunkCallback = (chunk: string) => {
-          fullCollectedResponseForHistory += chunk;
           const sseFormattedChunk = `data: ${JSON.stringify({ chunk: chunk })}\n\n`;
           controller.enqueue(encoder.encode(sseFormattedChunk));
         };
 
         try {
-          const result = await agent.execute({
-            action: "answer_query",
-            query: query,
-            chat_history: existingChatHistory,
-            documentId: documentId,
-            metadata: { onChunkCallback: onChunkCallback },
-            useWebSearch: useWebSearch,
+          await answerQuestion({
+            query,
+            history: existingChatHistory,
+            documentId,
+            onChunk: onChunkCallback,
+            useWebSearch,
           });
-
-          if (result.status === "error") {
-            console.error(
-              "Agent workflow error during streaming:",
-              result.error,
-            );
-            controller.enqueue(
-              encoder.encode(
-                `event: error\ndata: ${JSON.stringify({ error: result.error || "Agent failed to generate response." })}\n\n`,
-              ),
-            );
-          }
         } catch (agentError) {
           console.error(
-            "Unhandled error during agent execution in stream:",
+            "Unhandled error during query execution in stream:",
             agentError,
           );
           controller.enqueue(

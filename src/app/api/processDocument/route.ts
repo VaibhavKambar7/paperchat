@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { MainAgent } from "@/agents/main-agent";
 import { getFileFromS3 } from "@/service/s3Service";
+import { processDocument } from "@/service/processDocument";
 import prisma from "@/lib/prisma";
 
 export async function POST(req: Request) {
@@ -36,28 +36,15 @@ export async function POST(req: Request) {
 
     const pdfBuffer = await getFileFromS3(document.objectKey);
 
-    const agent = new MainAgent({ name: "DocumentProcessor" });
-    const result = await agent.execute({
-      action: "process_document",
+    const result = await processDocument({
       documentId: id,
-      pdfBuffer: pdfBuffer,
-      useWebSearch: false,
+      pdfBuffer,
     });
 
-    if (result.status === "error") {
-      console.error("Document processing agent error:", result.error);
-      return NextResponse.json(
-        { message: "Document processing failed.", error: result.error },
-        { status: 500 },
-      );
-    }
-
-    console.log("Document processing agent finished:", result.data);
     return NextResponse.json(
       {
-        message:
-          result.data?.message || "Document processing initiated successfully.",
-        result: result.data,
+        message: result.message,
+        result,
       },
       { status: 200 },
     );
