@@ -16,6 +16,30 @@ type AnswerQuestionInput = {
 };
 
 const NO_MATCHING_RESULTS = "No matching results found to construct context.";
+const NO_DOCUMENT_TEXT_FALLBACK =
+  "No document text available to answer this question from the document.";
+const NO_RELEVANT_CONTEXT_FALLBACK =
+  "I couldn't find relevant information for this question in the document.";
+
+async function persistChatHistory(
+  documentId: string,
+  chatHistory: ChatHistory,
+  query: string,
+  response?: string,
+) {
+  const updatedHistory = [
+    ...chatHistory,
+    { role: "user", content: query },
+    ...(response ? [{ role: "assistant" as const, content: response }] : []),
+  ] as ChatHistory;
+
+  await prisma.document.update({
+    where: { slug: documentId },
+    data: { chatHistory: updatedHistory },
+  });
+
+  return updatedHistory;
+}
 
 function buildWebSearchContext(snippets: TavilySnippet[], answer?: string) {
   const snippetBlock =
@@ -37,7 +61,10 @@ export async function answerQuestion({
   history = [],
   onChunk,
   useWebSearch = false,
-}: AnswerQuestionInput): Promise<{ response: string; chatHistory: ChatHistory }> {
+}: AnswerQuestionInput): Promise<{
+  response: string;
+  chatHistory: ChatHistory;
+}> {
   const document = await prisma.document.findUnique({
     where: { slug: documentId },
     select: {
@@ -55,65 +82,78 @@ export async function answerQuestion({
     Boolean,
   ) as ChatHistory;
   let response = "";
+  let webSearchContext = "";
 
   const collectChunk = (chunk: string) => {
     response += chunk;
     onChunk(chunk);
   };
 
-  let context = "";
-
-  if (document.embeddingsGenerated) {
-    const retrievedContext = await queryDB(query, documentId);
-    const hasRetrievedContext =
-      retrievedContext.trim().length > 0 &&
-      retrievedContext !== NO_MATCHING_RESULTS;
-
-    if (hasRetrievedContext) {
-      const contextParts = [`DOCUMENT EXTRACTS:\n${retrievedContext}`];
-
-      if (useWebSearch) {
-        try {
-          const webResult = await webSearch(query);
-          contextParts.push(
-            buildWebSearchContext(webResult.snippets ?? [], webResult.answer),
-          );
-        } catch (error) {
-          console.error("Web search failed:", error);
-        }
-      }
-
-      context = contextParts.join("\n\n");
+  if (useWebSearch) {
+    try {
+      const webResult = await webSearch(query);
+      webSearchContext = buildWebSearchContext(
+        webResult.snippets ?? [],
+        webResult.answer,
+      );
+    } catch (error) {
+      console.error("Web search failed:", error);
     }
   }
 
-  if (context) {
-    await generateContextualLLMResponseStream(
-      query,
-      context,
-      chatHistory,
-      collectChunk,
-    );
-  } else {
-    await generatePureLLMResponseStream(
-      query,
-      document.extractedText ||
-        "No document text available to answer this question from the document.",
-      chatHistory,
-      collectChunk,
-    );
+  let retrievedContext = "";
+  let hasRetrievedContext = false;
+
+  if (document.embeddingsGenerated) {
+    retrievedContext = await queryDB(query, documentId);
+    hasRetrievedContext =
+      retrievedContext.trim().length > 0 &&
+      retrievedContext !== NO_MATCHING_RESULTS;
   }
 
-  const updatedHistory = [
-    ...chatHistory,
-    { role: "user", content: query },
-    { role: "assistant", content: response },
-  ] as ChatHistory;
+  const contextParts: string[] = [];
 
-  await prisma.document.update({
-    where: { slug: documentId },
-    data: { chatHistory: updatedHistory },
-  });
+  if (hasRetrievedContext) {
+    contextParts.push(`DOCUMENT EXTRACTS:\n${retrievedContext}`);
+  }
+
+  if (webSearchContext) {
+    contextParts.push(webSearchContext);
+  }
+
+  const context = contextParts.join("\n\n");
+
+  try {
+    if (context) {
+      await generateContextualLLMResponseStream(
+        query,
+        context,
+        chatHistory,
+        collectChunk,
+      );
+    } else {
+      const fallbackText = document.embeddingsGenerated
+        ? NO_RELEVANT_CONTEXT_FALLBACK
+        : document.extractedText || NO_DOCUMENT_TEXT_FALLBACK;
+
+      await generatePureLLMResponseStream(
+        query,
+        fallbackText,
+        chatHistory,
+        collectChunk,
+      );
+    }
+  } catch (error) {
+    await persistChatHistory(documentId, chatHistory, query, response);
+    throw error;
+  }
+
+  const updatedHistory = await persistChatHistory(
+    documentId,
+    chatHistory,
+    query,
+    response,
+  );
 
   return { response, chatHistory: updatedHistory };
 }
