@@ -21,29 +21,45 @@ export const authOptions: NextAuthOptions = {
       }
 
       try {
-        const existingUser = await prisma.user.findUnique({
+        await prisma.user.upsert({
           where: { email: profile.email },
+          create: {
+            email: profile.email,
+            name: profile.name || "",
+          },
+          update: {
+            name: profile.name,
+          },
         });
-
-        if (existingUser) {
-          if (profile.name && existingUser.name !== profile.name) {
-            await prisma.user.update({
-              where: { email: profile.email },
-              data: { name: profile.name },
-            });
-            console.log(`Updated name for user ${profile.email}`);
-          }
-        } else {
-          console.log(
-            `SignIn callback: User ${profile.email} not found. Creation deferred to post-login flow with IP.`,
-          );
-        }
-
         return true;
       } catch (error) {
         console.error("Error during signIn callback:", error);
         return false;
       }
+    },
+    async jwt({ token, profile }) {
+      if (profile?.email && !token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: profile.email },
+        });
+        if (dbUser) {
+          token.id = dbUser.id;
+        }
+      } else if (token.email && !token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: token.email },
+        });
+        if (dbUser) {
+          token.id = dbUser.id;
+        }
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user && token.id) {
+        (session.user as any).id = token.id;
+      }
+      return session;
     },
   },
 };

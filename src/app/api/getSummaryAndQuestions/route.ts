@@ -4,9 +4,16 @@ import {
   generateQuestionsOnly,
 } from "@/service/llmService";
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export const POST = async (req: Request) => {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || !(session.user as any).id) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await req.json();
 
     if (!id) {
@@ -16,8 +23,8 @@ export const POST = async (req: Request) => {
       );
     }
 
-    const document = await prisma.document.findUnique({
-      where: { slug: id },
+    const document = await prisma.document.findFirst({
+      where: { slug: id, userId: (session.user as any).id },
       select: { extractedText: true },
     });
 

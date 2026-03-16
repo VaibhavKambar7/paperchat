@@ -2,17 +2,21 @@ import { createSignedURL } from "@/service/s3Service";
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import prisma from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
-    const { fileName, fileType, slug, ip } = await req.json();
-
-    if (!ip) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user || !(session.user as any).id) {
       return NextResponse.json(
-        { message: "User identification failed. Cannot upload." },
-        { status: 400 },
+        { message: "Unauthorized. Please log in to upload." },
+        { status: 401 },
       );
     }
+
+    const { fileName, fileType, slug } = await req.json();
+
     if (!fileName || !fileType || !slug) {
       return NextResponse.json(
         { message: "Missing required fields." },
@@ -20,22 +24,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { ip },
-    });
-
     const objectKey = `${uuidv4()}-${fileName}`;
 
-    await prisma.user.update({
-      where: { ip },
+    await prisma.document.create({
       data: {
-        documents: {
-          create: {
-            objectKey,
-            slug: slug,
-            fileName: fileName,
-          },
-        },
+        objectKey,
+        slug: slug,
+        fileName: fileName,
+        userId: (session.user as any).id,
       },
     });
 

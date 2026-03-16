@@ -28,7 +28,7 @@ enum Status {
 model User {
   id           String        @id @default(uuid())
   email        String?       @unique
-  ip           String        @unique
+  ip           String?
   name         String?
   documents    Document[]
   createdAt    DateTime      @default(now())
@@ -54,7 +54,7 @@ model Document {
 model Usage {
   id           String   @id @default(uuid())
   email        String?  @unique
-  ip           String   @unique
+  ip           String?
   pdfCount     Int      @default(0)
   messageCount Int      @default(0)
   createdAt    DateTime @default(now())
