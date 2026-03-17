@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { MAX_TOKEN_THRESHOLD } from "@/app/utils/constants";
 import {
   ChunkType,
-  chunkText,
+  chunkLlamaDocuments,
   embedChunks,
   extractTextFromPDF,
 } from "@/service/pdfService";
@@ -27,47 +27,32 @@ export async function processDocument({
   documentId,
   pdfBuffer,
 }: ProcessDocumentInput): Promise<ProcessDocumentResult> {
-  const { pagesData, totalPages, tokenCount, rawExtractedText } =
-    await extractTextFromPDF(pdfBuffer);
+  const {
+    pagesData,
+    totalPages,
+    tokenCount,
+    rawExtractedText,
+    llamaDocuments,
+  } = await extractTextFromPDF(pdfBuffer);
 
-  const allFinalChunks: ChunkType[] = [];
+  let allFinalChunks: ChunkType[] = [];
   let embeddingsProcessed = false;
 
-  if (tokenCount > MAX_TOKEN_THRESHOLD) {
-    let globalChunkIndexCounter = 0;
+  if (tokenCount > MAX_TOKEN_THRESHOLD && llamaDocuments) {
+    allFinalChunks = await chunkLlamaDocuments(llamaDocuments);
 
-    for (const page of pagesData) {
-      if (!page.text?.trim()) {
-        continue;
-      }
+    allFinalChunks = allFinalChunks.filter(
+      (chunk) => chunk.text.trim().length > 0,
+    );
 
-      const preChunks = await chunkText(page.text, totalPages, page.pageNumber);
-
-      for (const preChunk of preChunks) {
-        let previousSentence = "";
-
-        if (allFinalChunks.length > 0) {
-          const previousChunk = allFinalChunks[allFinalChunks.length - 1];
-          const sentences =
-            (nlp(previousChunk.text).sentences().out("array") as string[]) ||
-            [];
-          previousSentence = sentences[sentences.length - 1]?.trim() ?? "";
-        }
-
-        allFinalChunks.push({
-          id: `chunk-${documentId}-${globalChunkIndexCounter}`,
-          text: preChunk.text,
-          metadata: {
-            totalPages: preChunk.metadata.totalPages,
-            pageNumber: preChunk.metadata.pageNumber,
-            chunkIndex: `${globalChunkIndexCounter}`,
-            context: previousSentence,
-          },
-        });
-
-        globalChunkIndexCounter += 1;
-      }
-    }
+    allFinalChunks = allFinalChunks.map((chunk, idx) => ({
+      ...chunk,
+      id: `chunk-${documentId}-${idx}`,
+      metadata: {
+        ...chunk.metadata,
+        chunkIndex: String(idx),
+      },
+    }));
 
     if (allFinalChunks.length > 0) {
       const embeddedChunks = await embedChunks(allFinalChunks);

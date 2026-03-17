@@ -1,5 +1,10 @@
 import nlp from "compromise";
-import { LlamaParseReader, Document as LlamaDocument } from "llamaindex";
+import {
+  LlamaParseReader,
+  Document as LlamaDocument,
+  MarkdownNodeParser,
+  MetadataMode,
+} from "llamaindex";
 import { getEmbeddingPipeline } from "@/app/utils/getEmbeddingPipeline";
 import * as dotenv from "dotenv";
 import fs from "fs";
@@ -116,6 +121,7 @@ export const extractTextFromPDF = async (pdfBuffer: Buffer) => {
       totalPages: documents.length,
       tokenCount,
       rawExtractedText: fullTextForTokenCount.trim(),
+      llamaDocuments: documents,
     };
   } catch (error) {
     console.error("Error extracting text from PDF with LlamaParse:", error);
@@ -123,113 +129,45 @@ export const extractTextFromPDF = async (pdfBuffer: Buffer) => {
   }
 };
 
-export const chunkText = async (
-  pageText: string,
-  totalPages: number,
-  pageNumber: number,
-): Promise<PreChunk[]> => {
-  const maxChunkSizeChars: number = 1500;
-  const overlapRatio: number = 0.15;
+export const chunkLlamaDocuments = async (
+  documents: LlamaDocument[],
+): Promise<ChunkType[]> => {
+  if (documents.length === 0) return [];
 
-  const processedText: string = pageText.replace(/\s+/g, " ").trim();
-  if (!processedText) {
-    return [];
-  }
+  const parser = new MarkdownNodeParser();
+  const nodes = await parser.getNodesFromDocuments(documents);
 
-  const sentences: string[] =
-    (nlp(processedText).sentences().out("array") as string[]) || [];
+  const chunks: ChunkType[] = [];
 
-  const pageInternalChunks: PreChunk[] = [];
-  if (sentences.length === 0) {
-    if (processedText.length > 0) {
-      pageInternalChunks.push({
-        text: processedText,
-        metadata: { totalPages, pageNumber },
-      });
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    const text = node.getContent(MetadataMode.NONE).trim();
+    if (!text) continue;
+
+    let pageNumber = -1;
+    if (node.metadata?.page_label) {
+      pageNumber = parseInt(String(node.metadata.page_label), 10);
     }
-    return pageInternalChunks;
-  }
 
-  let currentChunkSentences: string[] = [];
-  let currentChunkChars: number = 0;
+    const headerPath = Object.entries(node.metadata)
+      .filter(([key]) => key.startsWith("Header_"))
+      .sort()
+      .map(([, value]) => value)
+      .join(" > ");
 
-  const addPreChunk = (sentencesToAdd: string[]): void => {
-    const chunkTextContent: string = sentencesToAdd.join(" ").trim();
-    if (!chunkTextContent) return;
-
-    const newPreChunk: PreChunk = {
-      text: chunkTextContent,
+    chunks.push({
+      id: node.id_,
+      text: text,
       metadata: {
-        totalPages: totalPages,
-        pageNumber: pageNumber,
+        chunkIndex: String(i),
+        pageNumber: pageNumber > 0 ? pageNumber : undefined,
+        sectionTitle: headerPath || undefined,
+        context: headerPath ? `Section: ${headerPath}` : "",
       },
-    };
-    pageInternalChunks.push(newPreChunk);
-  };
-
-  for (let i = 0; i < sentences.length; i++) {
-    const sentence: string = sentences[i].trim();
-    if (!sentence) continue;
-
-    const sentenceLen: number = sentence.length;
-
-    if (sentenceLen > maxChunkSizeChars) {
-      if (currentChunkSentences.length > 0) {
-        addPreChunk(currentChunkSentences);
-        currentChunkSentences = [];
-        currentChunkChars = 0;
-      }
-      const words: string[] = sentence.split(" ");
-      let partChunk: string = "";
-      for (let j = 0; j < words.length; j++) {
-        const word: string = words[j];
-        if (
-          partChunk.length + (partChunk ? 1 : 0) + word.length >
-            maxChunkSizeChars &&
-          partChunk
-        ) {
-          addPreChunk([partChunk]);
-          partChunk = word;
-        } else {
-          partChunk = partChunk ? `${partChunk} ${word}` : word;
-        }
-      }
-      if (partChunk) addPreChunk([partChunk]);
-      continue;
-    }
-
-    if (
-      currentChunkChars +
-        (currentChunkSentences.length > 0 ? 1 : 0) +
-        sentenceLen >
-        maxChunkSizeChars &&
-      currentChunkSentences.length > 0
-    ) {
-      addPreChunk(currentChunkSentences);
-      const overlapCount: number = Math.max(
-        1,
-        Math.floor(currentChunkSentences.length * overlapRatio),
-      );
-      const overlapStartIndex = Math.max(
-        0,
-        currentChunkSentences.length - overlapCount,
-      );
-      currentChunkSentences = [
-        ...currentChunkSentences.slice(overlapStartIndex),
-        sentence,
-      ];
-      currentChunkChars = currentChunkSentences.join(" ").length;
-    } else {
-      currentChunkSentences.push(sentence);
-      currentChunkChars = currentChunkSentences.join(" ").length;
-    }
+    });
   }
 
-  if (currentChunkSentences.length > 0) {
-    addPreChunk(currentChunkSentences);
-  }
-
-  return pageInternalChunks;
+  return chunks;
 };
 
 export const embedChunks = async (chunkOutputs: ChunkType[]) => {
