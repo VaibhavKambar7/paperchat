@@ -1,9 +1,9 @@
-import nlp from "compromise";
 import {
   LlamaParseReader,
   Document as LlamaDocument,
   MarkdownNodeParser,
   MetadataMode,
+  SentenceSplitter,
 } from "llamaindex";
 import { getEmbeddingPipeline } from "@/app/utils/getEmbeddingPipeline";
 import * as dotenv from "dotenv";
@@ -135,7 +135,14 @@ export const chunkLlamaDocuments = async (
   if (documents.length === 0) return [];
 
   const parser = new MarkdownNodeParser();
-  const nodes = await parser.getNodesFromDocuments(documents);
+  const mdNodes = await parser.getNodesFromDocuments(documents);
+
+  const splitter = new SentenceSplitter({
+    chunkSize: 1000,
+    chunkOverlap: 200,
+  });
+
+  const nodes = await splitter.getNodesFromDocuments(mdNodes);
 
   const chunks: ChunkType[] = [];
 
