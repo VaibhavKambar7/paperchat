@@ -1,6 +1,8 @@
 import { Pinecone } from "@pinecone-database/pinecone";
 import { ChunkType } from "./pdfService";
 import * as dotenv from "dotenv";
+import BM25 from "bm25";
+import { generateSparseVector } from "@/app/utils/bm25";
 
 dotenv.config();
 const pc = new Pinecone({
@@ -31,15 +33,23 @@ export const upsertData = async (embeddedChunks: ChunkType[], slug: string) => {
     );
   }
 
-  const pineRecords = embeddedChunks.map((chunk) => ({
-    id: chunk.id,
-    values: chunk.embedding,
-    metadata: {
-      ...chunk.metadata,
-      text: chunk.text,
-      context: chunk.metadata.context,
-    },
-  }));
+  const bm25 = new BM25();
+
+  embeddedChunks.forEach((chunk) => bm25.addDocument(chunk.text));
+  bm25.updateIdf();
+
+  const pineRecords = embeddedChunks.map((chunk) => {
+    return {
+      id: chunk.id,
+      values: chunk.embedding,
+      sparseValues: generateSparseVector(chunk.text, bm25),
+      metadata: {
+        ...chunk.metadata,
+        text: chunk.text,
+        context: chunk.metadata.context,
+      },
+    };
+  });
 
   const batchSize = 20;
   let totalUpserted = 0;
