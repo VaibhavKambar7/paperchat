@@ -2,6 +2,7 @@ import { getEmbeddingPipeline } from "@/app/utils/getEmbeddingPipeline";
 import { index } from "./uploadService";
 import BM25 from "bm25";
 import { generateSparseVector } from "@/app/utils/bm25";
+import { CohereClient } from "cohere-ai";
 
 async function embedQuery(query: string): Promise<number[]> {
   try {
@@ -34,22 +35,55 @@ export const queryDB = async (
     const sparseVector = generateSparseVector(query, bm25);
 
     const response = await index.namespace(slug).query({
-      topK: 5,
+      topK: 20,
       vector: queryEmbedding,
       sparseVector,
       includeValues: false,
       includeMetadata: true,
     });
 
-    console.log("Pinecone response matches:", response.matches);
-
-    console.log(
-      "Pinecone response matches:",
-      JSON.stringify(response.matches, null, 2),
-    );
+    console.log("Pinecone response matches:", response.matches.length);
 
     if (response.matches && response.matches.length > 0) {
-      const formattedContext = response.matches
+      let finalMatches = response.matches;
+
+      if (process.env.COHERE_API_KEY) {
+        try {
+          console.log("Reranking with Cohere...");
+          const cohere = new CohereClient({
+            token: process.env.COHERE_API_KEY,
+          });
+
+          const docs = response.matches.map(
+            (match) => (match.metadata?.text as string) || "No text available",
+          );
+
+          const rerankData = await cohere.rerank({
+            model: "rerank-english-v3.0",
+            query: query,
+            documents: docs,
+            topN: 5,
+          });
+
+          finalMatches = rerankData.results.map(
+            (r: any) => response.matches[r.index],
+          );
+          console.log("Successfully reranked with Cohere.");
+        } catch (e) {
+          console.error(
+            "Cohere reranking failed, falling back to Pinecone top 5.",
+            e,
+          );
+          finalMatches = response.matches.slice(0, 5);
+        }
+      } else {
+        console.warn(
+          "COHERE_API_KEY is missing, falling back to standard Pinecone top 5.",
+        );
+        finalMatches = response.matches.slice(0, 5);
+      }
+
+      const formattedContext = finalMatches
         .map((match) => {
           const text = (match.metadata?.text as string) || "No text available";
           const pageNumber = match.metadata?.pageNumber as number | undefined;
