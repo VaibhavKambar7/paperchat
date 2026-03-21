@@ -11,3 +11,11 @@ services:
       - .env
     restart: unless-stopped
     command: sh -c "npx prisma migrate deploy && npm start"
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    restart: always

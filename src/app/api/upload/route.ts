@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { checkUploadLimit } from "@/service/rateLimitService";
 
 export async function POST(req: Request) {
   try {
@@ -12,6 +13,14 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { message: "Unauthorized. Please log in to upload." },
         { status: 401 },
+      );
+    }
+
+    const isAllowed = await checkUploadLimit((session.user as any).id);
+    if (!isAllowed) {
+      return NextResponse.json(
+        { message: "Rate limit exceeded. Maximum 5 uploads per 24 hours." },
+        { status: 429 },
       );
     }
 

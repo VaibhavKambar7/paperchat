@@ -4,12 +4,24 @@ import { processDocument } from "@/service/processDocument";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { checkUploadLimit } from "@/service/rateLimitService";
 
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user || !(session.user as any).id) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    const isAllowed = await checkUploadLimit((session.user as any).id);
+    if (!isAllowed) {
+      return NextResponse.json(
+        {
+          message:
+            "Rate limit exceeded. Maximum 5 document operations per 24 hours.",
+        },
+        { status: 429 },
+      );
     }
 
     const { id } = await req.json();
