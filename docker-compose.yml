@@ -7,15 +7,34 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
+      DATABASE_URL: postgresql://docker:docker@db:5432/paperchat
+      DIRECT_URL: postgresql://docker:docker@db:5432/paperchat
+      REDIS_URL: redis://redis:6379
     env_file:
       - .env
     restart: unless-stopped
-    command: sh -c "npx prisma migrate deploy && npm start"
+    command: sh -c "npx prisma db push && npm start"
     depends_on:
       - redis
+      - db
 
   redis:
     image: redis:alpine
     ports:
       - "6379:6379"
     restart: always
+
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: docker
+      POSTGRES_PASSWORD: docker
+      POSTGRES_DB: paperchat
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
