@@ -14,7 +14,6 @@ interface PDFViewerProps {
   pdfUrl: string;
   setIsSidebarOpen: (open: boolean) => void;
   isSidebarOpen: boolean;
-  ip: string;
   navigateToPageNumber?: number;
   onPageNavigationComplete?: () => void;
 }
@@ -25,7 +24,6 @@ export function PDFViewer({
   pdfUrl,
   isSidebarOpen,
   setIsSidebarOpen,
-  ip,
   navigateToPageNumber,
   onPageNavigationComplete,
 }: PDFViewerProps) {
@@ -128,7 +126,7 @@ export function PDFViewer({
     <div className="w-1/2 relative flex h-screen">
       {isSidebarOpen && (
         <div className="w-64 fixed h-full bg-white border-r border-gray-200 z-40">
-          <Sidebar setIsSidebarOpen={setIsSidebarOpen} ip={ip} />
+          <Sidebar setIsSidebarOpen={setIsSidebarOpen} />
         </div>
       )}
 

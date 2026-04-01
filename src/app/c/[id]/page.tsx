@@ -5,7 +5,6 @@ import axios from "axios";
 import { PDFViewer } from "@/components/pdfViewer";
 import { ChatInterface } from "@/components/chatInterface";
 import { toast } from "sonner";
-import { getIP } from "@/app/utils/getIP";
 import { useSession } from "next-auth/react";
 import { MESSAGE_LIMIT } from "@/app/utils/constants";
 
@@ -32,17 +31,8 @@ const Chat = () => {
   );
 
   const { data } = useSession();
-  const ipRef = useRef<string>("");
   const isProcessingRef = useRef<boolean>(false);
   const slug = params.id as string;
-
-  useEffect(() => {
-    const fetchIP = async () => {
-      const ip = await getIP();
-      ipRef.current = ip;
-    };
-    fetchIP();
-  }, []);
 
   useEffect(() => {
     if (isProcessingRef.current) return;
@@ -231,7 +221,6 @@ const Chat = () => {
       return;
     }
 
-    const ip = ipRef.current;
     const userMessage: Message = { role: "user", content: query };
     const currentHistory = messages.filter(
       (m) => m.content !== "" && !m.isProcessing,
@@ -242,10 +231,7 @@ const Chat = () => {
     setShowQuestions(false);
 
     try {
-      const usage = await axios.post("/api/rate-limit/get-usage", {
-        ip: ip,
-        email: data?.user?.email,
-      });
+      const usage = await axios.post("/api/rate-limit/get-usage");
 
       if (!usage.data.isProUser && usage.data.messageCount >= MESSAGE_LIMIT) {
         toast.warning("You have reached the daily limit of 20 messages.");
@@ -306,10 +292,7 @@ const Chat = () => {
           }
         }
       }
-      await axios.post("/api/rate-limit/increment-message", {
-        ip: ip,
-        email: data?.user?.email,
-      });
+      await axios.post("/api/rate-limit/increment-message");
     } catch (err) {
       console.error("Error fetching response:", err);
       setError((err as Error).message || "Failed to get response");
@@ -345,7 +328,6 @@ const Chat = () => {
         pdfUrl={pdfUrl}
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
-        ip={ipRef.current}
         navigateToPageNumber={targetPdfPage}
         onPageNavigationComplete={handlePageNavigationComplete}
       />

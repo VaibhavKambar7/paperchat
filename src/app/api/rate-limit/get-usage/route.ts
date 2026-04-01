@@ -1,174 +1,33 @@
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
+import { requireAuth } from "@/lib/requireAuth";
 
 export async function POST(req: Request) {
   try {
-    const { ip, email }: { ip?: string; email?: string } = await req.json();
+    const auth = await requireAuth();
+    if ("response" in auth) return auth.response;
 
-    if (!ip) {
-      return NextResponse.json(
-        { error: "IP address is required" },
-        { status: 400 },
-      );
-    }
-
-    let user = null;
-    let usage = null;
-    let isProUser = false;
-    let plan = null;
-
-    if (email) {
-      user = await prisma.user.findUnique({
-        where: { email },
-        include: { usage: true, subscription: true },
-      });
-
-      if (!user) {
-        const userByIp = await prisma.user.findUnique({
-          where: { ip },
-          include: { usage: true, subscription: true },
-        });
-
-        if (userByIp) {
-          isProUser = userByIp.subscription?.status === "ACTIVE";
-          plan = userByIp.subscription?.plan;
-        }
-
-        if (userByIp && !userByIp.email) {
-          console.log(
-            `Linking email ${email} to existing user/usage for IP ${ip}`,
-          );
-          try {
-            user = await prisma.user.update({
-              where: { id: userByIp.id },
-              data: { email: email },
-              include: { usage: true },
-            });
-
-            if (user.usage) {
-              await prisma.usage.update({
-                where: { id: user.usage.id },
-                data: { email: email },
-              });
-              usage =
-                (await prisma.usage.findUnique({
-                  where: { id: user.usage.id },
-                })) ?? user.usage;
-            } else {
-              usage = await prisma.usage.create({
-                data: {
-                  ip: ip,
-                  email: email,
-                  userId: user.id,
-                },
-              });
-            }
-          } catch (error) {
-            if (
-              error instanceof Prisma.PrismaClientKnownRequestError &&
-              error.code === "P2002"
-            ) {
-              console.warn(
-                `Email ${email} conflict when linking IP ${ip}. Another user might have this email.`,
-              );
-              user = await prisma.user.findUnique({
-                where: { email },
-                include: { usage: true },
-              });
-              if (!user) {
-                throw new Error("User conflict resolution failed.");
-              }
-              usage = user.usage;
-            } else {
-              throw error;
-            }
-          }
-        }
-      } else {
-        usage = user.usage;
-        isProUser = user.subscription?.status === "ACTIVE";
-        plan = user.subscription?.plan;
-      }
-    }
+    const user = await prisma.user.findUnique({
+      where: { id: auth.userId },
+      include: { usage: true, subscription: true },
+    });
 
     if (!user) {
-      user = await prisma.user.findUnique({
-        where: { ip },
-        include: { usage: true },
-      });
-      if (user) {
-        usage = user.usage;
-      }
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    if (!user) {
-      console.log(
-        `Creating new user/usage for ${email ? `email ${email}` : `IP ${ip}`}`,
-      );
-      try {
-        user = await prisma.user.create({
+    const usage = user.usage
+      ? user.usage
+      : await prisma.usage.create({
           data: {
-            email: email ?? null,
-            ip: ip,
-            usage: {
-              create: {
-                ip: ip,
-                email: email ?? null,
-              },
-            },
+            userId: user.id,
+            email: user.email,
+            ip: user.ip,
           },
-          include: { usage: true },
         });
-        usage = user.usage;
-      } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === "P2002"
-        ) {
-          console.warn(
-            `Create conflict for ${email ? `email ${email}` : `IP ${ip}`}. Record likely created concurrently.`,
-          );
-          const whereClause = email ? { email } : { ip };
-          user = await prisma.user.findUnique({
-            where: whereClause,
-            include: { usage: true },
-          });
-          if (!user) {
-            throw new Error("User creation conflict resolution failed.");
-          }
-          usage = user.usage;
-        } else {
-          throw error;
-        }
-      }
-    }
 
-    if (user && !usage) {
-      console.warn(
-        `User ${user.id} found but usage was missing. Creating/linking usage.`,
-      );
-      usage = await prisma.usage.upsert({
-        where: { userId: user.id },
-        update: {},
-        create: {
-          ip: user.ip,
-          email: user.email,
-          userId: user.id,
-        },
-      });
-    }
-
-    if (!usage) {
-      console.error("FATAL: Could not find or create usage record for:", {
-        email,
-        ip,
-      });
-      return NextResponse.json(
-        { error: "Could not initialize usage data" },
-        { status: 500 },
-      );
-    }
+    const isProUser = user.subscription?.status === "ACTIVE";
+    const plan = user.subscription?.plan ?? null;
 
     return NextResponse.json({
       pdfCount: usage.pdfCount,

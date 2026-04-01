@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, RefObject } from "react";
 import { GoSidebarExpand } from "react-icons/go";
-import { getIP } from "@/app/utils/getIP";
 import Sidebar from "@/components/sidebar";
 import Hero from "@/components/hero";
 import Features from "@/components/features";
@@ -15,7 +14,6 @@ import Footer from "@/components/footer";
 export default function Home() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const ipRef = useRef<string>("");
 
   const featuresRef = useRef<HTMLElement>(null);
   const homeRef = useRef<HTMLElement>(null);
@@ -25,14 +23,6 @@ export default function Home() {
   const [selectedPlan, setSelectedPlan] = useState<"monthly" | "yearly">(
     "yearly",
   );
-
-  useEffect(() => {
-    const fetchIP = async () => {
-      const ip = await getIP();
-      ipRef.current = ip;
-    };
-    fetchIP();
-  }, []);
 
   return (
     <div className="flex min-h-screen flex-col bg-fabric-light">
@@ -47,7 +37,7 @@ export default function Home() {
         )}
         {isSidebarOpen && (
           <div className="fixed left-0 top-0 h-full z-50">
-            <Sidebar setIsSidebarOpen={setIsSidebarOpen} ip={ipRef.current} />
+            <Sidebar setIsSidebarOpen={setIsSidebarOpen} />
           </div>
         )}
         <div

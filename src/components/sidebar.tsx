@@ -35,10 +35,8 @@ interface ChatsResponse {
 
 export default function Sidebar({
   setIsSidebarOpen,
-  ip,
 }: {
   setIsSidebarOpen: (open: boolean) => void;
-  ip: string;
 }) {
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
@@ -69,10 +67,7 @@ export default function Sidebar({
   useEffect(() => {
     const fetchUsage = async () => {
       try {
-        const response = await axios.post("/api/rate-limit/get-usage", {
-          ip: ip,
-          email: data?.user?.email,
-        });
+        const response = await axios.post("/api/rate-limit/get-usage");
         setUsage(response.data);
       } catch (error) {
         console.error("Failed to fetch usage data:", error);
@@ -136,8 +131,6 @@ export default function Sidebar({
         else setLoadingMore(true);
 
         const response = await axios.post<ChatsResponse>("/api/getChats", {
-          email: EMAIL ?? null,
-          ip,
           page,
           limit: 10,
         });
@@ -214,8 +207,6 @@ export default function Sidebar({
       }
       const res = await axios.post(`/api/searchChats`, {
         keyword: searchQuery.trim() || null,
-        email: EMAIL ?? null,
-        ip,
       });
       const { documents } = res.data;
       setChats(documents);

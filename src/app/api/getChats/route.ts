@@ -1,32 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { buildUserWhere } from "@/app/utils/buildUserWhere";
+import { requireAuth } from "@/lib/requireAuth";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email = null, ip = null, page = 1, limit = 10 } = await req.json();
-
-    if (!email) {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
-    }
+    const auth = await requireAuth();
+    if ("response" in auth) return auth.response;
+    const { page = 1, limit = 10 } = await req.json();
 
     const skip = (page - 1) * limit;
 
-    const user = await prisma.user.findUnique({
-      where: buildUserWhere(email, ip),
-      select: { id: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
     const totalCount = await prisma.document.count({
-      where: { userId: user.id },
+      where: { userId: auth.userId },
     });
 
     const documents = await prisma.document.findMany({
-      where: { userId: user.id },
+      where: { userId: auth.userId },
       select: {
         slug: true,
         fileName: true,

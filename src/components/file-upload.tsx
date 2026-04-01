@@ -11,7 +11,6 @@ import { useRouter } from "next/navigation";
 import { PiSpinnerBold } from "react-icons/pi";
 import { MAX_SIZE_BYTES, MAX_SIZE_MB, PDF_LIMIT } from "@/app/utils/constants";
 import { useSession } from "next-auth/react";
-import { getIP } from "@/app/utils/getIP";
 
 interface FileUploadProps {
   setPdfUrl: Dispatch<SetStateAction<string | null>>;
@@ -68,11 +67,7 @@ export function FileUpload({ setPdfUrl }: FileUploadProps) {
     try {
       setLoading(true);
 
-      const ip = await getIP();
-      const usage = await axios.post("/api/rate-limit/get-usage", {
-        ip: ip,
-        email: data?.user?.email,
-      });
+      const usage = await axios.post("/api/rate-limit/get-usage");
 
       if (!usage.data.isProUser && usage.data.pdfCount >= PDF_LIMIT) {
         toast.warning("You have reached the daily limit of 2 PDFs.");
@@ -88,7 +83,6 @@ export function FileUpload({ setPdfUrl }: FileUploadProps) {
           fileName: selectedFile?.name,
           fileType: selectedFile?.type,
           slug: id,
-          ip: ip,
         },
         {
           headers: {
@@ -110,10 +104,7 @@ export function FileUpload({ setPdfUrl }: FileUploadProps) {
       setLoading(false);
       toast.success("File uploaded successfully!");
 
-      const result = await axios.post("/api/rate-limit/increment-pdf", {
-        ip: ip,
-        email: data?.user?.email,
-      });
+      const result = await axios.post("/api/rate-limit/increment-pdf");
 
       if (result.data.error) {
         toast.error(result.data.error);

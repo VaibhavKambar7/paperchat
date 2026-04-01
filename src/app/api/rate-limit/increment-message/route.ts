@@ -1,30 +1,27 @@
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/requireAuth";
 
 export async function POST(req: Request) {
   try {
-    const { ip, email } = await req.json();
+    const auth = await requireAuth();
+    if ("response" in auth) return auth.response;
 
-    if (!ip && !email) {
-      return NextResponse.json(
-        { error: "IP or Email required" },
-        { status: 400 },
-      );
-    }
-
-    const where = email ? { email } : { ip };
-
-    const usage = await prisma.usage.findUnique({ where });
+    const usage = await prisma.usage.findUnique({
+      where: { userId: auth.userId },
+    });
 
     if (!usage) {
-      return NextResponse.json(
-        { error: "Usage record not found" },
-        { status: 404 },
-      );
+      await prisma.usage.create({
+        data: {
+          userId: auth.userId,
+          ip: `session:${auth.userId}`,
+        },
+      });
     }
 
     await prisma.usage.update({
-      where,
+      where: { userId: auth.userId },
       data: {
         messageCount: { increment: 1 },
       },
