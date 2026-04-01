@@ -2,18 +2,15 @@ import { NextResponse } from "next/server";
 import { ChatHistory } from "@/service/llmService";
 import { answerQuestion } from "@/service/answerQuestion";
 import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { checkQueryLimit } from "@/service/rateLimitService";
+import { requireAuth } from "@/lib/requireAuth";
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user || !(session.user as any).id) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireAuth();
+    if ("response" in auth) return auth.response;
 
-    const isAllowed = await checkQueryLimit((session.user as any).id);
+    const isAllowed = await checkQueryLimit(auth.userId);
     if (!isAllowed) {
       return NextResponse.json(
         { message: "Rate limit exceeded. Maximum 30 queries per 1 hour." },
@@ -31,7 +28,7 @@ export async function POST(req: Request) {
     }
 
     const document = await prisma.document.findFirst({
-      where: { slug: documentId, userId: (session.user as any).id },
+      where: { slug: documentId, userId: auth.userId },
       select: { chatHistory: true },
     });
 

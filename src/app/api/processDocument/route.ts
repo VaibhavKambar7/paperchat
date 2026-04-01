@@ -2,18 +2,15 @@ import { NextResponse } from "next/server";
 import { getFileFromS3 } from "@/service/s3Service";
 import { processDocument } from "@/service/processDocument";
 import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { checkUploadLimit } from "@/service/rateLimitService";
+import { requireAuth } from "@/lib/requireAuth";
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user || !(session.user as any).id) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireAuth();
+    if ("response" in auth) return auth.response;
 
-    const isAllowed = await checkUploadLimit((session.user as any).id);
+    const isAllowed = await checkUploadLimit(auth.userId);
     if (!isAllowed) {
       return NextResponse.json(
         {
@@ -34,7 +31,7 @@ export async function POST(req: Request) {
     }
 
     const document = await prisma.document.findFirst({
-      where: { slug: id, userId: (session.user as any).id },
+      where: { slug: id, userId: auth.userId },
       select: { objectKey: true, embeddingsGenerated: true },
     });
 

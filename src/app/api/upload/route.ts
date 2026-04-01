@@ -2,21 +2,15 @@ import { createSignedURL } from "@/service/s3Service";
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { checkUploadLimit } from "@/service/rateLimitService";
+import { requireAuth } from "@/lib/requireAuth";
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user || !(session.user as any).id) {
-      return NextResponse.json(
-        { message: "Unauthorized. Please log in to upload." },
-        { status: 401 },
-      );
-    }
+    const auth = await requireAuth();
+    if ("response" in auth) return auth.response;
 
-    const isAllowed = await checkUploadLimit((session.user as any).id);
+    const isAllowed = await checkUploadLimit(auth.userId);
     if (!isAllowed) {
       return NextResponse.json(
         { message: "Rate limit exceeded. Maximum 5 uploads per 24 hours." },
@@ -40,7 +34,7 @@ export async function POST(req: Request) {
         objectKey,
         slug: slug,
         fileName: fileName,
-        userId: (session.user as any).id,
+        userId: auth.userId,
       },
     });
 

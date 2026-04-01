@@ -26,6 +26,7 @@ export const authOptions: NextAuthOptions = {
           create: {
             email: profile.email,
             name: profile.name || "",
+            ip: `oauth:${profile.email}`,
           },
           update: {
             name: profile.name,

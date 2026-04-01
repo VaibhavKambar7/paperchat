@@ -1,19 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth } from "@/lib/requireAuth";
+import prisma from "@/lib/prisma";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-04-30.basil",
 });
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireAuth();
+  if ("response" in auth) return auth.response;
 
   const { plan } = await req.json();
-  const email = session.user?.email;
+  const user = await prisma.user.findUnique({
+    where: { id: auth.userId },
+    select: { email: true },
+  });
+
+  if (!user?.email) {
+    return NextResponse.json(
+      { error: "Authenticated user does not have an email." },
+      { status: 400 },
+    );
+  }
 
   const stripeSession = await stripe.checkout.sessions.create({
     mode: "subscription",
@@ -27,7 +36,7 @@ export async function POST(req: NextRequest) {
         quantity: 1,
       },
     ],
-    customer_email: email!,
+    customer_email: user.email,
     success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success`,
     cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/billing`,
     metadata: { plan },
