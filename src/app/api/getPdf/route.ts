@@ -3,8 +3,10 @@ import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/requireAuth";
 import { apiError } from "@/lib/api-response";
+import { getRequestId } from "@/lib/request-id";
 
 export async function POST(req: Request) {
+  const requestId = getRequestId(req);
   try {
     const auth = await requireAuth();
     if ("response" in auth) return auth.response;
@@ -33,22 +35,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ pdf: base64Pdf });
     } catch (error: any) {
       console.error(
-        "Error fetching PDF from S3:",
+        `[request:${requestId}] Error fetching PDF from S3:`,
         JSON.stringify(error, null, 2),
       );
       return apiError(
         error.message || "Failed to fetch PDF from S3",
         "GET_PDF_FROM_STORAGE_FAILED",
         500,
-        { details: { storageCode: error.code } },
+        { details: { storageCode: error.code, requestId } },
       );
     }
   } catch (error: any) {
-    console.error("Error processing request:", error);
+    console.error(`[request:${requestId}] Error processing request:`, error);
     return apiError(
       error.message || "Failed to process request",
       "GET_PDF_REQUEST_FAILED",
       400,
+      { details: { requestId } },
     );
   }
 }

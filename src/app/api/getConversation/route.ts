@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuth } from "@/lib/requireAuth";
 import { apiError } from "@/lib/api-response";
+import { getRequestId } from "@/lib/request-id";
 
 export async function POST(req: Request) {
+  const requestId = getRequestId(req);
   try {
     const auth = await requireAuth();
     if ("response" in auth) return auth.response;
@@ -31,7 +33,9 @@ export async function POST(req: Request) {
       status: 200,
     });
   } catch (error) {
-    console.error("Error fetching chat history:", error);
-    return apiError("Internal server error", "GET_CONVERSATION_FAILED", 500);
+    console.error(`[request:${requestId}] Error fetching chat history:`, error);
+    return apiError("Internal server error", "GET_CONVERSATION_FAILED", 500, {
+      details: { requestId },
+    });
   }
 }

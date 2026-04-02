@@ -5,8 +5,10 @@ import prisma from "@/lib/prisma";
 import { checkQueryLimit } from "@/service/rateLimitService";
 import { requireAuth } from "@/lib/requireAuth";
 import { apiError } from "@/lib/api-response";
+import { getRequestId } from "@/lib/request-id";
 
 export async function POST(req: Request) {
+  const requestId = getRequestId(req);
   try {
     const auth = await requireAuth();
     if ("response" in auth) return auth.response;
@@ -62,7 +64,7 @@ export async function POST(req: Request) {
           });
         } catch (agentError) {
           console.error(
-            "Unhandled error during query execution in stream:",
+            `[request:${requestId}] Unhandled error during query execution in stream:`,
             agentError,
           );
           controller.enqueue(
@@ -85,10 +87,10 @@ export async function POST(req: Request) {
       },
     });
   } catch (error) {
-    console.error("Error in API route:", error);
+    console.error(`[request:${requestId}] Error in API route:`, error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return apiError("Internal server error.", "QUERY_FAILED", 500, {
-      details: errorMessage,
+      details: { requestId, errorMessage },
     });
   }
 }

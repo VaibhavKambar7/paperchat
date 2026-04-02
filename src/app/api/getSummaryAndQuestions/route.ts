@@ -6,8 +6,10 @@ import {
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/requireAuth";
 import { apiError } from "@/lib/api-response";
+import { getRequestId } from "@/lib/request-id";
 
 export const POST = async (req: Request) => {
+  const requestId = getRequestId(req);
   try {
     const auth = await requireAuth();
     if ("response" in auth) return auth.response;
@@ -106,11 +108,15 @@ export const POST = async (req: Request) => {
       },
     });
   } catch (error) {
-    console.error("Error in /api/getSummaryAndQuestions:", error);
+    console.error(
+      `[request:${requestId}] Error in /api/getSummaryAndQuestions:`,
+      error,
+    );
     return apiError(
       "Internal server error",
       "GET_SUMMARY_AND_QUESTIONS_FAILED",
       500,
+      { details: { requestId } },
     );
   }
 };

@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuth } from "@/lib/requireAuth";
 import { apiError } from "@/lib/api-response";
+import { getRequestId } from "@/lib/request-id";
 
 export async function POST(req: NextRequest) {
+  const requestId = getRequestId(req);
   try {
     const auth = await requireAuth();
     if ("response" in auth) return auth.response;
@@ -37,7 +39,9 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error fetching chats:", error);
-    return apiError("Failed to fetch chats", "GET_CHATS_FAILED", 500);
+    console.error(`[request:${requestId}] Error fetching chats:`, error);
+    return apiError("Failed to fetch chats", "GET_CHATS_FAILED", 500, {
+      details: { requestId },
+    });
   }
 }

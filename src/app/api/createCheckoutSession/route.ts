@@ -3,12 +3,14 @@ import Stripe from "stripe";
 import { requireAuth } from "@/lib/requireAuth";
 import prisma from "@/lib/prisma";
 import { apiError } from "@/lib/api-response";
+import { getRequestId } from "@/lib/request-id";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-04-30.basil",
 });
 
 export async function POST(req: NextRequest) {
+  const requestId = getRequestId(req);
   const auth = await requireAuth();
   if ("response" in auth) return auth.response;
 
@@ -23,6 +25,7 @@ export async function POST(req: NextRequest) {
       "Authenticated user does not have an email.",
       "AUTH_USER_EMAIL_MISSING",
       400,
+      { details: { requestId } },
     );
   }
 
