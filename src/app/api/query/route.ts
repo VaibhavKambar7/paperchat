@@ -29,8 +29,15 @@ export async function POST(req: Request) {
 
     const document = await prisma.document.findFirst({
       where: { slug: documentId, userId: auth.userId },
-      select: { chatHistory: true },
+      select: { slug: true, chatHistory: true },
     });
+
+    if (!document) {
+      return NextResponse.json(
+        { message: "Document not found." },
+        { status: 404 },
+      );
+    }
 
     const existingChatHistory: ChatHistory = (document?.chatHistory ||
       []) as ChatHistory;
