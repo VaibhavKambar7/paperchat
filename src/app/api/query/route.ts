@@ -47,6 +47,7 @@ export async function POST(req: Request) {
         try {
           await answerQuestion({
             query,
+            userId: auth.userId,
             history: existingChatHistory,
             documentId,
             onChunk: onChunkCallback,

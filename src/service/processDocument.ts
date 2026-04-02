@@ -11,6 +11,7 @@ import { upsertData } from "@/service/uploadService";
 
 type ProcessDocumentInput = {
   documentId: string;
+  userId: string;
   pdfBuffer: Buffer;
 };
 
@@ -25,6 +26,7 @@ type ProcessDocumentResult = {
 
 export async function processDocument({
   documentId,
+  userId,
   pdfBuffer,
 }: ProcessDocumentInput): Promise<ProcessDocumentResult> {
   const {
@@ -61,13 +63,17 @@ export async function processDocument({
     }
   }
 
-  await prisma.document.update({
-    where: { slug: documentId },
+  const updateResult = await prisma.document.updateMany({
+    where: { slug: documentId, userId },
     data: {
       extractedText: rawExtractedText,
       embeddingsGenerated: embeddingsProcessed,
     },
   });
+
+  if (updateResult.count === 0) {
+    throw new Error(`Document with ID ${documentId} not found.`);
+  }
 
   let message = `Document ${documentId} extracted (${totalPages} pages, ${tokenCount} tokens). Token count is below threshold, so chunking and embedding were skipped.`;
 

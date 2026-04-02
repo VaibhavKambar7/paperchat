@@ -68,8 +68,8 @@ export const POST = async (req: Request) => {
             encoder.encode(`data: ${JSON.stringify({ questions })}\n\n`),
           );
 
-          await prisma.document.update({
-            where: { slug: id },
+          const updateResult = await prisma.document.updateMany({
+            where: { slug: id, userId: auth.userId },
             data: {
               chatHistory: [
                 {
@@ -79,6 +79,10 @@ export const POST = async (req: Request) => {
               ],
             },
           });
+
+          if (updateResult.count === 0) {
+            throw new Error("Document not found for current user.");
+          }
 
           console.log("Sending [DONE] signal");
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));

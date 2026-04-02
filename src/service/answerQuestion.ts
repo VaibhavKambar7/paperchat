@@ -10,6 +10,7 @@ import { queryDB } from "@/service/queryService";
 type AnswerQuestionInput = {
   query: string;
   documentId: string;
+  userId: string;
   history?: ChatHistory;
   onChunk: (chunk: string) => void;
   useWebSearch?: boolean;
@@ -23,6 +24,7 @@ const NO_RELEVANT_CONTEXT_FALLBACK =
 
 async function persistChatHistory(
   documentId: string,
+  userId: string,
   chatHistory: ChatHistory,
   query: string,
   response?: string,
@@ -33,10 +35,14 @@ async function persistChatHistory(
     ...(response ? [{ role: "assistant" as const, content: response }] : []),
   ] as ChatHistory;
 
-  await prisma.document.update({
-    where: { slug: documentId },
+  const updateResult = await prisma.document.updateMany({
+    where: { slug: documentId, userId },
     data: { chatHistory: updatedHistory },
   });
+
+  if (updateResult.count === 0) {
+    throw new Error(`Document with ID ${documentId} not found.`);
+  }
 
   return updatedHistory;
 }
@@ -58,6 +64,7 @@ function buildWebSearchContext(snippets: TavilySnippet[], answer?: string) {
 export async function answerQuestion({
   query,
   documentId,
+  userId,
   history = [],
   onChunk,
   useWebSearch = false,
@@ -65,8 +72,8 @@ export async function answerQuestion({
   response: string;
   chatHistory: ChatHistory;
 }> {
-  const document = await prisma.document.findUnique({
-    where: { slug: documentId },
+  const document = await prisma.document.findFirst({
+    where: { slug: documentId, userId },
     select: {
       extractedText: true,
       embeddingsGenerated: true,
@@ -144,12 +151,13 @@ export async function answerQuestion({
       );
     }
   } catch (error) {
-    await persistChatHistory(documentId, chatHistory, query, response);
+    await persistChatHistory(documentId, userId, chatHistory, query, response);
     throw error;
   }
 
   const updatedHistory = await persistChatHistory(
     documentId,
+    userId,
     chatHistory,
     query,
     response,

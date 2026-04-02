@@ -54,6 +54,7 @@ export async function POST(req: Request) {
 
     const result = await processDocument({
       documentId: id,
+      userId: auth.userId,
       pdfBuffer,
     });
 
