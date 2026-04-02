@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { requireAuth } from "@/lib/requireAuth";
 import prisma from "@/lib/prisma";
+import { apiError } from "@/lib/api-response";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-04-30.basil",
@@ -18,9 +19,10 @@ export async function POST(req: NextRequest) {
   });
 
   if (!user?.email) {
-    return NextResponse.json(
-      { error: "Authenticated user does not have an email." },
-      { status: 400 },
+    return apiError(
+      "Authenticated user does not have an email.",
+      "AUTH_USER_EMAIL_MISSING",
+      400,
     );
   }
 

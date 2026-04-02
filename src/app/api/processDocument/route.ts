@@ -4,6 +4,7 @@ import { processDocument } from "@/service/processDocument";
 import prisma from "@/lib/prisma";
 import { checkUploadLimit } from "@/service/rateLimitService";
 import { requireAuth } from "@/lib/requireAuth";
+import { apiError } from "@/lib/api-response";
 
 export async function POST(req: Request) {
   try {
@@ -12,22 +13,17 @@ export async function POST(req: Request) {
 
     const isAllowed = await checkUploadLimit(auth.userId);
     if (!isAllowed) {
-      return NextResponse.json(
-        {
-          message:
-            "Rate limit exceeded. Maximum 5 document operations per 24 hours.",
-        },
-        { status: 429 },
+      return apiError(
+        "Rate limit exceeded. Maximum 5 document operations per 24 hours.",
+        "RATE_LIMIT_EXCEEDED",
+        429,
       );
     }
 
     const { id } = await req.json();
 
     if (!id) {
-      return NextResponse.json(
-        { message: "Document ID is required." },
-        { status: 400 },
-      );
+      return apiError("Document ID is required.", "MISSING_DOCUMENT_ID", 400);
     }
 
     const document = await prisma.document.findFirst({
@@ -36,10 +32,7 @@ export async function POST(req: Request) {
     });
 
     if (!document) {
-      return NextResponse.json(
-        { message: "Document not found." },
-        { status: 404 },
-      );
+      return apiError("Document not found.", "DOCUMENT_NOT_FOUND", 404);
     }
 
     if (document.embeddingsGenerated) {
@@ -68,9 +61,8 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("Error in API route:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return NextResponse.json(
-      { message: "Internal server error.", error: errorMessage },
-      { status: 500 },
-    );
+    return apiError("Internal server error.", "PROCESS_DOCUMENT_FAILED", 500, {
+      details: errorMessage,
+    });
   }
 }

@@ -1,6 +1,8 @@
 import { getFileFromS3 } from "@/service/s3Service";
 import prisma from "@/lib/prisma";
+import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/requireAuth";
+import { apiError } from "@/lib/api-response";
 
 export async function POST(req: Request) {
   try {
@@ -9,9 +11,7 @@ export async function POST(req: Request) {
 
     const { id } = await req.json();
     if (!id) {
-      return new Response(JSON.stringify({ error: "ID is required" }), {
-        status: 400,
-      });
+      return apiError("ID is required", "MISSING_DOCUMENT_ID", 400);
     }
 
     try {
@@ -24,36 +24,31 @@ export async function POST(req: Request) {
       });
 
       if (!document) {
-        return new Response(JSON.stringify({ error: "Document not found" }), {
-          status: 404,
-        });
+        return apiError("Document not found", "DOCUMENT_NOT_FOUND", 404);
       }
 
-      1;
       const pdfBuffer = await getFileFromS3(document.objectKey);
 
       const base64Pdf = pdfBuffer.toString("base64");
-      return new Response(JSON.stringify({ pdf: base64Pdf }));
+      return NextResponse.json({ pdf: base64Pdf });
     } catch (error: any) {
       console.error(
         "Error fetching PDF from S3:",
         JSON.stringify(error, null, 2),
       );
-      return new Response(
-        JSON.stringify({
-          error: error.message || "Failed to fetch PDF from S3",
-          code: error.code,
-        }),
-        { status: 500 },
+      return apiError(
+        error.message || "Failed to fetch PDF from S3",
+        "GET_PDF_FROM_STORAGE_FAILED",
+        500,
+        { details: { storageCode: error.code } },
       );
     }
   } catch (error: any) {
     console.error("Error processing request:", error);
-    return new Response(
-      JSON.stringify({
-        error: error.message || "Failed to process request",
-      }),
-      { status: 400 },
+    return apiError(
+      error.message || "Failed to process request",
+      "GET_PDF_REQUEST_FAILED",
+      400,
     );
   }
 }

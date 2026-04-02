@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/requireAuth";
+import { apiError } from "@/lib/api-response";
 
 export async function POST(req: Request) {
   try {
@@ -13,7 +14,7 @@ export async function POST(req: Request) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return apiError("User not found", "USER_NOT_FOUND", 404);
     }
 
     const usage = user.usage
@@ -37,9 +38,10 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Get Usage Error:", error);
-    return NextResponse.json(
-      { error: "Server error processing usage request" },
-      { status: 500 },
+    return apiError(
+      "Server error processing usage request",
+      "GET_USAGE_FAILED",
+      500,
     );
   }
 }

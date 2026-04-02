@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
+import { apiError } from "@/lib/api-response";
 
 type AuthenticatedContext = {
   userId: string;
@@ -18,7 +19,7 @@ export async function requireAuth(): Promise<
 
   if (!session?.user || !userId) {
     return {
-      response: NextResponse.json({ message: "Unauthorized" }, { status: 401 }),
+      response: apiError("Unauthorized", "AUTH_UNAUTHORIZED", 401),
     };
   }
 

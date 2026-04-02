@@ -4,6 +4,7 @@ import { answerQuestion } from "@/service/answerQuestion";
 import prisma from "@/lib/prisma";
 import { checkQueryLimit } from "@/service/rateLimitService";
 import { requireAuth } from "@/lib/requireAuth";
+import { apiError } from "@/lib/api-response";
 
 export async function POST(req: Request) {
   try {
@@ -12,18 +13,20 @@ export async function POST(req: Request) {
 
     const isAllowed = await checkQueryLimit(auth.userId);
     if (!isAllowed) {
-      return NextResponse.json(
-        { message: "Rate limit exceeded. Maximum 30 queries per 1 hour." },
-        { status: 429 },
+      return apiError(
+        "Rate limit exceeded. Maximum 30 queries per 1 hour.",
+        "RATE_LIMIT_EXCEEDED",
+        429,
       );
     }
 
     const { query, documentId, useWebSearch } = await req.json();
 
     if (!query || !documentId) {
-      return NextResponse.json(
-        { message: "Query and Document ID are required." },
-        { status: 400 },
+      return apiError(
+        "Query and Document ID are required.",
+        "MISSING_QUERY_OR_DOCUMENT_ID",
+        400,
       );
     }
 
@@ -33,10 +36,7 @@ export async function POST(req: Request) {
     });
 
     if (!document) {
-      return NextResponse.json(
-        { message: "Document not found." },
-        { status: 404 },
-      );
+      return apiError("Document not found.", "DOCUMENT_NOT_FOUND", 404);
     }
 
     const existingChatHistory: ChatHistory = (document?.chatHistory ||
@@ -87,9 +87,8 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("Error in API route:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return NextResponse.json(
-      { message: "Internal server error.", error: errorMessage },
-      { status: 500 },
-    );
+    return apiError("Internal server error.", "QUERY_FAILED", 500, {
+      details: errorMessage,
+    });
   }
 }

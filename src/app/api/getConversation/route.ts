@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuth } from "@/lib/requireAuth";
+import { apiError } from "@/lib/api-response";
 
 export async function POST(req: Request) {
   try {
@@ -10,7 +11,7 @@ export async function POST(req: Request) {
     const { id } = await req.json();
 
     if (!id) {
-      return NextResponse.json({ message: "ID is required" }, { status: 400 });
+      return apiError("ID is required", "MISSING_DOCUMENT_ID", 400);
     }
 
     const document = await prisma.document.findFirst({
@@ -22,10 +23,7 @@ export async function POST(req: Request) {
     });
 
     if (!document) {
-      return NextResponse.json(
-        { message: "Document not found" },
-        { status: 404 },
-      );
+      return apiError("Document not found", "DOCUMENT_NOT_FOUND", 404);
     }
 
     return NextResponse.json({
@@ -34,9 +32,6 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Error fetching chat history:", error);
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 },
-    );
+    return apiError("Internal server error", "GET_CONVERSATION_FAILED", 500);
   }
 }

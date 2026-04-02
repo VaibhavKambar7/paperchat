@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { requireAuth } from "@/lib/requireAuth";
+import { apiError } from "@/lib/api-response";
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,9 +27,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ documents });
   } catch (error) {
     console.error("Error fetching chats:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch chats" },
-      { status: 500 },
-    );
+    return apiError("Failed to fetch chats", "SEARCH_CHATS_FAILED", 500);
   }
 }

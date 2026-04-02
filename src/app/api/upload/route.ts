@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import prisma from "@/lib/prisma";
 import { checkUploadLimit } from "@/service/rateLimitService";
 import { requireAuth } from "@/lib/requireAuth";
+import { apiError } from "@/lib/api-response";
 
 export async function POST(req: Request) {
   try {
@@ -12,18 +13,20 @@ export async function POST(req: Request) {
 
     const isAllowed = await checkUploadLimit(auth.userId);
     if (!isAllowed) {
-      return NextResponse.json(
-        { message: "Rate limit exceeded. Maximum 5 uploads per 24 hours." },
-        { status: 429 },
+      return apiError(
+        "Rate limit exceeded. Maximum 5 uploads per 24 hours.",
+        "RATE_LIMIT_EXCEEDED",
+        429,
       );
     }
 
     const { fileName, fileType, slug } = await req.json();
 
     if (!fileName || !fileType || !slug) {
-      return NextResponse.json(
-        { message: "Missing required fields." },
-        { status: 400 },
+      return apiError(
+        "Missing required fields.",
+        "MISSING_REQUIRED_FIELDS",
+        400,
       );
     }
 
@@ -43,9 +46,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ signedUrl }, { status: 200 });
   } catch (error) {
     console.error("Upload Error: ", error);
-    return NextResponse.json(
-      { message: "Server error during upload." },
-      { status: 500 },
-    );
+    return apiError("Server error during upload.", "UPLOAD_FAILED", 500);
   }
 }

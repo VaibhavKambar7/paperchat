@@ -5,6 +5,7 @@ import {
 } from "@/service/llmService";
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/requireAuth";
+import { apiError } from "@/lib/api-response";
 
 export const POST = async (req: Request) => {
   try {
@@ -14,10 +15,7 @@ export const POST = async (req: Request) => {
     const { id } = await req.json();
 
     if (!id) {
-      return NextResponse.json(
-        { message: "Document ID is required" },
-        { status: 400 },
-      );
+      return apiError("Document ID is required", "MISSING_DOCUMENT_ID", 400);
     }
 
     const document = await prisma.document.findFirst({
@@ -26,9 +24,10 @@ export const POST = async (req: Request) => {
     });
 
     if (!document || !document.extractedText) {
-      return NextResponse.json(
-        { message: "Document or text not found" },
-        { status: 404 },
+      return apiError(
+        "Document or text not found",
+        "DOCUMENT_TEXT_NOT_FOUND",
+        404,
       );
     }
 
@@ -108,9 +107,10 @@ export const POST = async (req: Request) => {
     });
   } catch (error) {
     console.error("Error in /api/getSummaryAndQuestions:", error);
-    return NextResponse.json(
-      { message: "Internal server error" },
-      { status: 500 },
+    return apiError(
+      "Internal server error",
+      "GET_SUMMARY_AND_QUESTIONS_FAILED",
+      500,
     );
   }
 };
