@@ -3,10 +3,14 @@ import { ChunkType } from "./pdfService";
 import * as dotenv from "dotenv";
 import BM25 from "bm25";
 import { generateSparseVector } from "@/app/utils/bm25";
+import { requireEnv } from "@/lib/env";
 
 dotenv.config();
+const PINECONE_API_KEY = requireEnv("PINECONE_API_KEY");
+const PINECONE_INDEX_NAME = process.env.PINECONE_INDEX_NAME || "rag-new";
+
 const pc = new Pinecone({
-  apiKey: process.env.PINECONE_API_KEY ?? "",
+  apiKey: PINECONE_API_KEY,
 });
 
 //   await pc.createIndex({
@@ -24,7 +28,7 @@ const pc = new Pinecone({
 //   });
 
 // export const index = pc.index("rag");
-export const index = pc.index("rag-new");
+export const index = pc.index(PINECONE_INDEX_NAME);
 
 export const upsertData = async (embeddedChunks: ChunkType[], slug: string) => {
   if (!Array.isArray(embeddedChunks) || embeddedChunks.length === 0) {

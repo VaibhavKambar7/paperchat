@@ -10,8 +10,10 @@ import {
 } from "../app/utils/prompts";
 import pLimit from "p-limit";
 import { splitBySections } from "@/app/utils/splitBySections";
+import { requireEnv } from "@/lib/env";
 
 dotenv.config();
+const GEMINI_API_KEY = requireEnv("GEMINI_API_KEY");
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -30,7 +32,7 @@ export async function generateContextualLLMResponseStream(
     const model = new ChatGoogleGenerativeAI({
       modelName: "gemini-2.0-flash-exp",
       temperature: 0.7,
-      apiKey: process.env.GEMINI_API_KEY,
+      apiKey: GEMINI_API_KEY,
       streaming: true,
       callbacks: [
         {
@@ -71,7 +73,7 @@ export async function generatePureLLMResponseStream(
     const model = new ChatGoogleGenerativeAI({
       modelName: "gemini-2.0-flash-exp",
       temperature: 0.7,
-      apiKey: process.env.GEMINI_API_KEY,
+      apiKey: GEMINI_API_KEY,
       streaming: true,
       callbacks: [
         {
@@ -115,7 +117,7 @@ export const generateSummaryOnly = async (
     const modelNonStreaming = new ChatGoogleGenerativeAI({
       modelName: "gemini-2.0-flash-exp",
       temperature: 0.7,
-      apiKey: process.env.GEMINI_API_KEY,
+      apiKey: GEMINI_API_KEY,
       streaming: false,
     });
 
@@ -137,7 +139,7 @@ export const generateSummaryOnly = async (
     const modelStreaming = new ChatGoogleGenerativeAI({
       modelName: "gemini-2.0-flash-exp",
       temperature: 0.7,
-      apiKey: process.env.GEMINI_API_KEY,
+      apiKey: GEMINI_API_KEY,
       streaming: true,
       callbacks: [
         {
@@ -168,7 +170,7 @@ export const generateQuestionsOnly = async (
     const model = new ChatGoogleGenerativeAI({
       modelName: "gemini-2.0-flash-exp",
       temperature: 0.7,
-      apiKey: process.env.GEMINI_API_KEY,
+      apiKey: GEMINI_API_KEY,
       streaming: false,
     });
 
@@ -211,7 +213,7 @@ export const generateSummaryAndQuestions = async (
     const model = new ChatGoogleGenerativeAI({
       modelName: "gemini-2.0-flash-exp",
       temperature: 0.7,
-      apiKey: process.env.GEMINI_API_KEY,
+      apiKey: GEMINI_API_KEY,
       streaming: true,
       callbacks: [
         {

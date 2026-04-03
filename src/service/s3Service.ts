@@ -5,20 +5,24 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import * as dotenv from "dotenv";
+import { requireEnv } from "@/lib/env";
 
 dotenv.config();
+const AWS_ACCESS_KEY_ID = requireEnv("AWS_ACCESS_KEY_ID");
+const AWS_SECRET_ACCESS_KEY = requireEnv("AWS_SECRET_ACCESS_KEY");
+const BUCKET_NAME = requireEnv("BUCKET_NAME");
 
 const s3Client = new S3Client({
   region: "ap-south-1",
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+    accessKeyId: AWS_ACCESS_KEY_ID,
+    secretAccessKey: AWS_SECRET_ACCESS_KEY,
   },
 });
 
 export const createSignedURL = async (objectKey: string) => {
   const putObjectCommand = new PutObjectCommand({
-    Bucket: process.env.BUCKET_NAME!,
+    Bucket: BUCKET_NAME,
     Key: objectKey,
   });
   const url = await getSignedUrl(s3Client, putObjectCommand, { expiresIn: 60 });
@@ -28,7 +32,7 @@ export const createSignedURL = async (objectKey: string) => {
 export const getFileFromS3 = async (objectKey: string) => {
   try {
     const params = {
-      Bucket: process.env.BUCKET_NAME!,
+      Bucket: BUCKET_NAME,
       Key: objectKey,
     };
 

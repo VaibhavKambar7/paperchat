@@ -10,11 +10,12 @@ import * as dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
 import { estimateTokenCount } from "@/app/utils/estimateTokens";
+import { requireEnv } from "@/lib/env";
 // import { execSync } from "child_process";
 
 dotenv.config();
 
-const LLAMA_API_KEY = process.env.LLAMA_CLOUD_API_KEY || "";
+const LLAMA_API_KEY = requireEnv("LLAMA_CLOUD_API_KEY");
 
 export type ChunkType = {
   id: string;
