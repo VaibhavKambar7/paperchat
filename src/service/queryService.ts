@@ -3,6 +3,31 @@ import { index } from "./uploadService";
 import BM25 from "bm25";
 import { generateSparseVector } from "@/app/utils/bm25";
 import { CohereClient } from "cohere-ai";
+import {
+  RecordMetadata,
+  ScoredPineconeRecord,
+} from "@pinecone-database/pinecone";
+
+function normalizeChunkText(text: string): string {
+  return text.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function dedupeMatches(matches: ScoredPineconeRecord<RecordMetadata>[]) {
+  const seen = new Set<string>();
+  const deduped: ScoredPineconeRecord<RecordMetadata>[] = [];
+
+  for (const match of matches) {
+    const text = String(match.metadata?.text ?? "");
+    const page = String(match.metadata?.pageNumber ?? "");
+    const identityKey = match.id || `${page}:${normalizeChunkText(text)}`;
+
+    if (seen.has(identityKey)) continue;
+    seen.add(identityKey);
+    deduped.push(match);
+  }
+
+  return deduped;
+}
 
 async function embedQuery(query: string): Promise<number[]> {
   try {
@@ -83,7 +108,9 @@ export const queryDB = async (
         finalMatches = response.matches.slice(0, 5);
       }
 
-      const formattedContext = finalMatches
+      const uniqueMatches = dedupeMatches(finalMatches);
+
+      const formattedContext = uniqueMatches
         .map((match) => {
           const text = (match.metadata?.text as string) || "No text available";
           const pageNumber = match.metadata?.pageNumber as number | undefined;
