@@ -10,12 +10,20 @@ import * as dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
 import { estimateTokenCount } from "@/app/utils/estimateTokens";
-import { requireEnv } from "@/lib/env";
+import { getEnvInt, requireEnv } from "@/lib/env";
 // import { execSync } from "child_process";
 
 dotenv.config();
 
 const LLAMA_API_KEY = requireEnv("LLAMA_CLOUD_API_KEY");
+const RAG_CHUNK_SIZE = getEnvInt("RAG_CHUNK_SIZE", 1000, 100);
+const RAG_CHUNK_OVERLAP = getEnvInt("RAG_CHUNK_OVERLAP", 200, 0);
+
+if (RAG_CHUNK_OVERLAP >= RAG_CHUNK_SIZE) {
+  throw new Error(
+    `[env] RAG_CHUNK_OVERLAP (${RAG_CHUNK_OVERLAP}) must be smaller than RAG_CHUNK_SIZE (${RAG_CHUNK_SIZE}).`,
+  );
+}
 
 export type ChunkType = {
   id: string;
@@ -139,8 +147,8 @@ export const chunkLlamaDocuments = async (
   const mdNodes = await parser.getNodesFromDocuments(documents);
 
   const splitter = new SentenceSplitter({
-    chunkSize: 1000,
-    chunkOverlap: 200,
+    chunkSize: RAG_CHUNK_SIZE,
+    chunkOverlap: RAG_CHUNK_OVERLAP,
   });
 
   const nodes = await splitter.getNodesFromDocuments(mdNodes);

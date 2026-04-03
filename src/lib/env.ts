@@ -15,3 +15,27 @@ export function requireEnvs(names: string[], context?: string): void {
     );
   }
 }
+
+export function getEnvInt(
+  name: string,
+  defaultValue: number,
+  minValue: number = 0,
+): number {
+  const raw = process.env[name];
+  if (!raw) return defaultValue;
+
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || Number.isNaN(parsed)) {
+    throw new Error(
+      `[env] ${name} must be a valid integer. Received: "${raw}"`,
+    );
+  }
+
+  if (parsed < minValue) {
+    throw new Error(
+      `[env] ${name} must be >= ${minValue}. Received: ${parsed}`,
+    );
+  }
+
+  return parsed;
+}
