@@ -33,6 +33,8 @@ const Pricing = forwardRef<HTMLElement, PricingProps>(
     }, [session]);
 
     const handleUpgrade = async () => {
+      if (loading) return;
+
       try {
         setLoading(true);
 
@@ -77,21 +79,23 @@ const Pricing = forwardRef<HTMLElement, PricingProps>(
             <div className="flex items-center gap-4 bg-gray-100 p-1">
               <button
                 onClick={() => setSelectedPlan("monthly")}
+                disabled={loading}
                 className={`px-4 py-2 text-sm font-medium ${
                   selectedPlan === "monthly"
                     ? "bg-black text-white"
                     : "text-black"
-                } cursor-pointer`}
+                } ${loading ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
               >
                 Monthly
               </button>
               <button
                 onClick={() => setSelectedPlan("yearly")}
+                disabled={loading}
                 className={`px-4 py-2 text-sm font-medium ${
                   selectedPlan === "yearly"
                     ? "bg-black text-white"
                     : "text-black"
-                } cursor-pointer`}
+                } ${loading ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
               >
                 Yearly
               </button>
@@ -176,7 +180,8 @@ const Pricing = forwardRef<HTMLElement, PricingProps>(
                     : "bg-gray-400 cursor-not-allowed"
                 }`}
                 disabled={
-                  selectedPlan !== "monthly" && selectedPlan !== "yearly"
+                  loading ||
+                  (selectedPlan !== "monthly" && selectedPlan !== "yearly")
                 }
               >
                 {loading ? (

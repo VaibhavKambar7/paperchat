@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import axios from "axios";
 import { PiSpinnerBold } from "react-icons/pi";
@@ -52,6 +52,8 @@ export default function Sidebar({
     hasMore: false,
   });
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const searchRequestIdRef = useRef(0);
   const { data, status } = useSession();
   const EMAIL = data?.user?.email;
   const params = useParams();
@@ -199,6 +201,8 @@ export default function Sidebar({
   }, [searchQuery]);
 
   const handleSearch = async () => {
+    const requestId = ++searchRequestIdRef.current;
+    setIsSearching(true);
     setLoading(true);
     try {
       if (!EMAIL) {
@@ -208,6 +212,9 @@ export default function Sidebar({
       const res = await axios.post(`/api/searchChats`, {
         keyword: searchQuery.trim() || null,
       });
+
+      if (requestId !== searchRequestIdRef.current) return;
+
       const { documents } = res.data;
       setChats(documents);
     } catch (err) {
@@ -222,7 +229,10 @@ export default function Sidebar({
         toast.error("Something went wrong. Please try again.");
       }
     } finally {
-      setLoading(false);
+      if (requestId === searchRequestIdRef.current) {
+        setLoading(false);
+        setIsSearching(false);
+      }
     }
   };
 
@@ -253,11 +263,12 @@ export default function Sidebar({
                 type="text"
                 placeholder="Search"
                 value={searchQuery}
+                disabled={isSearching}
                 onChange={(e) => {
                   const value = e.target.value;
                   setSearchQuery(value);
                 }}
-                className="w-full bg-white text-gray-900 p-2 border border-gray-300 focus:outline-none"
+                className="w-full bg-white text-gray-900 p-2 border border-gray-300 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
               />
             </div>
           </div>

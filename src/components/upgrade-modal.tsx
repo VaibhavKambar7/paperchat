@@ -38,6 +38,8 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
     usage.plan === "MONTHLY" && selectedPlan === "yearly";
 
   const handleUpgrade = async () => {
+    if (loading) return;
+
     if (isSamePlan) {
       toast.info("You're already subscribed to this plan.");
       return;
@@ -104,6 +106,7 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
               <div className="flex flex-col sm:flex-row gap-4">
                 <div
                   onClick={() => {
+                    if (loading) return;
                     if (usage.plan !== "YEARLY") setSelectedPlan("monthly");
                   }}
                   className={`relative flex flex-col justify-between border rounded-none p-3 w-full sm:w-1/2 ${
@@ -123,7 +126,7 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
                       name="plan"
                       checked={selectedPlan === "monthly"}
                       onChange={() => {}}
-                      disabled={usage.plan === "YEARLY"}
+                      disabled={usage.plan === "YEARLY" || loading}
                       className="accent-black w-4 h-4"
                     />
                     <label
@@ -142,7 +145,9 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 </div>
 
                 <div
-                  onClick={() => setSelectedPlan("yearly")}
+                  onClick={() => {
+                    if (!loading) setSelectedPlan("yearly");
+                  }}
                   className={`relative flex flex-col justify-between border rounded-none p-3 w-full sm:w-1/2 cursor-pointer ${
                     selectedPlan === "yearly"
                       ? "border-black"
@@ -156,6 +161,7 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
                       name="plan"
                       checked={selectedPlan === "yearly"}
                       onChange={() => setSelectedPlan("yearly")}
+                      disabled={loading}
                       className="accent-black w-4 h-4"
                     />
                     <label
@@ -184,7 +190,7 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
 
               <Button
                 onClick={handleUpgrade}
-                disabled={isSamePlan}
+                disabled={isSamePlan || loading}
                 className="w-full bg-black rounded-none text-sm h-12 cursor-pointer text-white hover:bg-gray-800 mt-4"
               >
                 {loading ? (
