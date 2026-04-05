@@ -102,6 +102,7 @@ export async function answerQuestion({
   ) as ChatHistory;
   let response = "";
   let webSearchContext = "";
+  let webSearchFailureNote = "";
 
   const collectChunk = (chunk: string) => {
     response += chunk;
@@ -117,6 +118,8 @@ export async function answerQuestion({
       );
     } catch (error) {
       console.error("Web search failed:", error);
+      webSearchFailureNote =
+        "Web search is currently unavailable. I will answer using the document context only.";
     }
   }
 
@@ -155,9 +158,13 @@ export async function answerQuestion({
         ? NO_RELEVANT_CONTEXT_FALLBACK
         : document.extractedText || NO_DOCUMENT_TEXT_FALLBACK;
 
+      const fallbackTextWithWebSearchNotice = webSearchFailureNote
+        ? `${fallbackText}\n\n${webSearchFailureNote}`
+        : fallbackText;
+
       await generatePureLLMResponseStream(
         query,
-        clampText(fallbackText, RAG_MAX_FALLBACK_TEXT_CHARS),
+        clampText(fallbackTextWithWebSearchNotice, RAG_MAX_FALLBACK_TEXT_CHARS),
         chatHistory,
         collectChunk,
       );
