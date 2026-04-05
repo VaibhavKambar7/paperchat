@@ -9,9 +9,12 @@ import { getRequestId } from "@/lib/request-id";
 
 export async function POST(req: Request) {
   const requestId = getRequestId(req);
+  let documentId: string | null = null;
+  let userId: string | null = null;
   try {
     const auth = await requireAuth();
     if ("response" in auth) return auth.response;
+    userId = auth.userId;
 
     const isAllowed = await checkUploadLimit(auth.userId);
     if (!isAllowed) {
@@ -23,6 +26,7 @@ export async function POST(req: Request) {
     }
 
     const { id } = await req.json();
+    documentId = id;
 
     if (!id) {
       return apiError("Document ID is required.", "MISSING_DOCUMENT_ID", 400);
@@ -38,12 +42,21 @@ export async function POST(req: Request) {
     }
 
     if (document.embeddingsGenerated) {
+      await prisma.document.updateMany({
+        where: { slug: id, userId: auth.userId },
+        data: { processingStatus: "DONE" },
+      });
       console.log("Document already processed. Skipping.");
       return NextResponse.json(
         { message: "Document already processed." },
         { status: 200 },
       );
     }
+
+    await prisma.document.updateMany({
+      where: { slug: id, userId: auth.userId },
+      data: { processingStatus: "PROCESSING" },
+    });
 
     const pdfBuffer = await getFileFromS3(document.objectKey);
 
@@ -61,6 +74,12 @@ export async function POST(req: Request) {
       { status: 200 },
     );
   } catch (error) {
+    if (documentId && userId) {
+      await prisma.document.updateMany({
+        where: { slug: documentId, userId },
+        data: { processingStatus: "FAILED" },
+      });
+    }
     console.error(`[request:${requestId}] Error in API route:`, error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     return apiError("Internal server error.", "PROCESS_DOCUMENT_FAILED", 500, {

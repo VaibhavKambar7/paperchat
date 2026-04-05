@@ -68,6 +68,7 @@ export async function processDocument({
     data: {
       extractedText: rawExtractedText,
       embeddingsGenerated: embeddingsProcessed,
+      processingStatus: "DONE",
     },
   });
 

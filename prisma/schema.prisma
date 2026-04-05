@@ -25,6 +25,13 @@ enum Status {
   INCOMPLETE
 }
 
+enum DocumentProcessingStatus {
+  QUEUED
+  PROCESSING
+  DONE
+  FAILED
+}
+
 model User {
   id           String        @id @default(uuid())
   email        String?       @unique
@@ -43,6 +50,7 @@ model Document {
   slug                String   @unique
   fileName            String
   userId              String
+  processingStatus    DocumentProcessingStatus @default(QUEUED)
   extractedText       String?
   User                User     @relation(fields: [userId], references: [id])
   chatHistory         Json[]

@@ -21,6 +21,7 @@ export async function POST(req: Request) {
       select: {
         chatHistory: true,
         embeddingsGenerated: true,
+        processingStatus: true,
       },
     });
 

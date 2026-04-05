@@ -40,6 +40,7 @@ export async function POST(req: Request) {
         slug: slug,
         fileName: fileName,
         userId: auth.userId,
+        processingStatus: "QUEUED",
       },
     });
 
