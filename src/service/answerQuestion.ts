@@ -5,7 +5,7 @@ import {
   generateContextualLLMResponseStream,
   generatePureLLMResponseStream,
 } from "@/service/llmService";
-import { queryDB } from "@/service/queryService";
+import { QueryDBDebug, queryDBDetailed } from "@/service/queryService";
 import { getEnvInt } from "@/lib/env";
 
 type AnswerQuestionInput = {
@@ -15,6 +15,14 @@ type AnswerQuestionInput = {
   history?: ChatHistory;
   onChunk: (chunk: string) => void;
   useWebSearch?: boolean;
+  debug?: boolean;
+};
+
+export type AnswerQuestionDebug = {
+  retrieval: QueryDBDebug;
+  usedContextualAnswering: boolean;
+  usedWebSearch: boolean;
+  webSearchFailed: boolean;
 };
 
 const NO_MATCHING_RESULTS = "No matching results found to construct context.";
@@ -80,9 +88,11 @@ export async function answerQuestion({
   history = [],
   onChunk,
   useWebSearch = false,
+  debug = false,
 }: AnswerQuestionInput): Promise<{
   response: string;
   chatHistory: ChatHistory;
+  debug?: AnswerQuestionDebug;
 }> {
   const document = await prisma.document.findFirst({
     where: { slug: documentId, userId },
@@ -125,9 +135,18 @@ export async function answerQuestion({
 
   let retrievedContext = "";
   let hasRetrievedContext = false;
+  let retrievalDebug: QueryDBDebug = {
+    initialMatchCount: 0,
+    finalMatchCount: 0,
+    dedupedMatchCount: 0,
+    rerankUsed: false,
+    chunks: [],
+  };
 
   if (document.embeddingsGenerated) {
-    retrievedContext = await queryDB(query, documentId);
+    const retrieval = await queryDBDetailed(query, documentId);
+    retrievedContext = retrieval.context;
+    retrievalDebug = retrieval.debug;
     hasRetrievedContext =
       retrievedContext.trim().length > 0 &&
       retrievedContext !== NO_MATCHING_RESULTS;
@@ -182,5 +201,20 @@ export async function answerQuestion({
     response,
   );
 
-  return { response, chatHistory: updatedHistory };
+  const usedContextualAnswering = Boolean(context);
+
+  return {
+    response,
+    chatHistory: updatedHistory,
+    ...(debug
+      ? {
+          debug: {
+            retrieval: retrievalDebug,
+            usedContextualAnswering,
+            usedWebSearch: useWebSearch && Boolean(webSearchContext),
+            webSearchFailed: useWebSearch && Boolean(webSearchFailureNote),
+          },
+        }
+      : {}),
+  };
 }

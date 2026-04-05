@@ -22,7 +22,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { query, documentId, useWebSearch } = await req.json();
+    const { query, documentId, useWebSearch, debug } = await req.json();
 
     if (!query || !documentId) {
       return apiError(
@@ -54,14 +54,23 @@ export async function POST(req: Request) {
         };
 
         try {
-          await answerQuestion({
+          const result = await answerQuestion({
             query,
             userId: auth.userId,
             history: existingChatHistory,
             documentId,
             onChunk: onChunkCallback,
             useWebSearch,
+            debug: Boolean(debug),
           });
+
+          if (debug && result.debug) {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({ debug: result.debug })}\n\n`,
+              ),
+            );
+          }
         } catch (agentError) {
           console.error(
             `[request:${requestId}] Unhandled error during query execution in stream:`,

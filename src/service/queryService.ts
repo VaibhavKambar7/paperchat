@@ -29,6 +29,26 @@ function dedupeMatches(matches: ScoredPineconeRecord<RecordMetadata>[]) {
   return deduped;
 }
 
+export type RetrievalDebugChunk = {
+  id: string;
+  score?: number;
+  pageNumber?: number;
+  preview: string;
+};
+
+export type QueryDBDebug = {
+  initialMatchCount: number;
+  finalMatchCount: number;
+  dedupedMatchCount: number;
+  rerankUsed: boolean;
+  chunks: RetrievalDebugChunk[];
+};
+
+export type QueryDBResult = {
+  context: string;
+  debug: QueryDBDebug;
+};
+
 async function embedQuery(query: string): Promise<number[]> {
   try {
     const embeddingPipeline = await getEmbeddingPipeline();
@@ -49,6 +69,15 @@ export const queryDB = async (
   slug: string,
   sectionTitle?: string,
 ): Promise<string> => {
+  const result = await queryDBDetailed(query, slug, sectionTitle);
+  return result.context;
+};
+
+export const queryDBDetailed = async (
+  query: string,
+  slug: string,
+  sectionTitle?: string,
+): Promise<QueryDBResult> => {
   try {
     console.log("Query++++:", query);
     const queryEmbedding = await embedQuery(query);
@@ -71,6 +100,7 @@ export const queryDB = async (
 
     if (response.matches && response.matches.length > 0) {
       let finalMatches = response.matches;
+      let rerankUsed = false;
 
       if (process.env.COHERE_API_KEY) {
         try {
@@ -93,6 +123,7 @@ export const queryDB = async (
           finalMatches = rerankData.results.map(
             (r: any) => response.matches[r.index],
           );
+          rerankUsed = true;
           console.log("Successfully reranked with Cohere.");
         } catch (e) {
           console.error(
@@ -129,10 +160,34 @@ export const queryDB = async (
         "Formatted context for LLM:",
         JSON.stringify(formattedContext, null, 2),
       );
-      return formattedContext;
+
+      return {
+        context: formattedContext,
+        debug: {
+          initialMatchCount: response.matches.length,
+          finalMatchCount: finalMatches.length,
+          dedupedMatchCount: uniqueMatches.length,
+          rerankUsed,
+          chunks: uniqueMatches.map((match) => ({
+            id: match.id,
+            score: match.score,
+            pageNumber: match.metadata?.pageNumber as number | undefined,
+            preview: String(match.metadata?.text ?? "").slice(0, 160),
+          })),
+        },
+      };
     }
 
-    return "No matching results found to construct context.";
+    return {
+      context: "No matching results found to construct context.",
+      debug: {
+        initialMatchCount: 0,
+        finalMatchCount: 0,
+        dedupedMatchCount: 0,
+        rerankUsed: false,
+        chunks: [],
+      },
+    };
   } catch (error) {
     console.error("Error querying database:", error);
     throw new Error(
