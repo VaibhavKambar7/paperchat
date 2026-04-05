@@ -6,6 +6,7 @@ import {
   generatePureLLMResponseStream,
 } from "@/service/llmService";
 import { queryDB } from "@/service/queryService";
+import { getEnvInt } from "@/lib/env";
 
 type AnswerQuestionInput = {
   query: string;
@@ -21,6 +22,17 @@ const NO_DOCUMENT_TEXT_FALLBACK =
   "No document text available to answer this question from the document.";
 const NO_RELEVANT_CONTEXT_FALLBACK =
   "I couldn't find relevant information for this question in the document.";
+const RAG_MAX_CONTEXT_CHARS = getEnvInt("RAG_MAX_CONTEXT_CHARS", 14000, 1000);
+const RAG_MAX_FALLBACK_TEXT_CHARS = getEnvInt(
+  "RAG_MAX_FALLBACK_TEXT_CHARS",
+  14000,
+  1000,
+);
+
+function clampText(input: string, maxChars: number): string {
+  if (input.length <= maxChars) return input;
+  return `${input.slice(0, maxChars)}\n\n[Context truncated for length safety.]`;
+}
 
 async function persistChatHistory(
   documentId: string,
@@ -128,7 +140,7 @@ export async function answerQuestion({
     contextParts.push(webSearchContext);
   }
 
-  const context = contextParts.join("\n\n");
+  const context = clampText(contextParts.join("\n\n"), RAG_MAX_CONTEXT_CHARS);
 
   try {
     if (context) {
@@ -145,7 +157,7 @@ export async function answerQuestion({
 
       await generatePureLLMResponseStream(
         query,
-        fallbackText,
+        clampText(fallbackText, RAG_MAX_FALLBACK_TEXT_CHARS),
         chatHistory,
         collectChunk,
       );
