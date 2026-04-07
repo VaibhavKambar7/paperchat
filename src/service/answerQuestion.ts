@@ -7,6 +7,7 @@ import {
 } from "@/service/llmService";
 import { QueryDBDebug, queryDBDetailed } from "@/service/queryService";
 import { getEnvInt } from "@/lib/env";
+import { truncateChatHistory } from "@/app/utils/chat-helper";
 
 type AnswerQuestionInput = {
   query: string;
@@ -36,6 +37,16 @@ const RAG_MAX_FALLBACK_TEXT_CHARS = getEnvInt(
   14000,
   1000,
 );
+const RAG_MAX_CHAT_HISTORY_MESSAGES = getEnvInt(
+  "RAG_MAX_CHAT_HISTORY_MESSAGES",
+  100,
+  2,
+);
+const RAG_MAX_CHAT_HISTORY_CHARS = getEnvInt(
+  "RAG_MAX_CHAT_HISTORY_CHARS",
+  50000,
+  1000,
+);
 
 function clampText(input: string, maxChars: number): string {
   if (input.length <= maxChars) return input;
@@ -54,17 +65,22 @@ async function persistChatHistory(
     { role: "user", content: query },
     ...(response ? [{ role: "assistant" as const, content: response }] : []),
   ] as ChatHistory;
+  const lastMessagesOnly = updatedHistory.slice(-RAG_MAX_CHAT_HISTORY_MESSAGES);
+  const boundedHistory = truncateChatHistory(
+    lastMessagesOnly,
+    RAG_MAX_CHAT_HISTORY_CHARS,
+  ) as ChatHistory;
 
   const updateResult = await prisma.document.updateMany({
     where: { slug: documentId, userId },
-    data: { chatHistory: updatedHistory },
+    data: { chatHistory: boundedHistory },
   });
 
   if (updateResult.count === 0) {
     throw new Error(`Document with ID ${documentId} not found.`);
   }
 
-  return updatedHistory;
+  return boundedHistory;
 }
 
 function buildWebSearchContext(snippets: TavilySnippet[], answer?: string) {
