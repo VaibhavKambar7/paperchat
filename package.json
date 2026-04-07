@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "cron": "tsx cron/resetUsage.ts",
+    "seed:local": "tsx scripts/seed-local.ts",
     "build": "next build",
     "start": "next start",
     "cron:run": "tsx cron/resetUsage.ts",
