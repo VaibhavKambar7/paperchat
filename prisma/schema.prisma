@@ -57,6 +57,9 @@ model Document {
   embeddingsGenerated Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+
+  @@index([userId, updatedAt])
+  @@index([userId, fileName])
 }
 
 model Usage {

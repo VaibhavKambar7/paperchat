@@ -37,8 +37,7 @@ async function main() {
   const seedChatHistory = [
     {
       role: "assistant",
-      content:
-        "Welcome! This is seeded chat history for local manual testing.",
+      content: "Welcome! This is seeded chat history for local manual testing.",
     },
     {
       role: "user",
@@ -85,4 +84,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
