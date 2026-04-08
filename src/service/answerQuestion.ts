@@ -156,7 +156,9 @@ export async function answerQuestion({
     finalMatchCount: 0,
     scoreFilteredMatchCount: 0,
     dedupedMatchCount: 0,
+    pageCappedMatchCount: 0,
     minScoreThreshold: 0,
+    maxChunksPerPage: 0,
     rerankUsed: false,
     chunks: [],
   };

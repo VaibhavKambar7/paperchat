@@ -7,13 +7,10 @@ import {
   RecordMetadata,
   ScoredPineconeRecord,
 } from "@pinecone-database/pinecone";
-import { getEnvFloat } from "@/lib/env";
+import { getEnvFloat, getEnvInt } from "@/lib/env";
 
-const RAG_MIN_RETRIEVAL_SCORE = getEnvFloat(
-  "RAG_MIN_RETRIEVAL_SCORE",
-  0,
-  -1,
-);
+const RAG_MIN_RETRIEVAL_SCORE = getEnvFloat("RAG_MIN_RETRIEVAL_SCORE", 0, -1);
+const RAG_MAX_CHUNKS_PER_PAGE = getEnvInt("RAG_MAX_CHUNKS_PER_PAGE", 2, 1);
 
 function normalizeChunkText(text: string): string {
   return text.replace(/\s+/g, " ").trim().toLowerCase();
@@ -36,6 +33,29 @@ function dedupeMatches(matches: ScoredPineconeRecord<RecordMetadata>[]) {
   return deduped;
 }
 
+function capChunksPerPage(matches: ScoredPineconeRecord<RecordMetadata>[]) {
+  const pageCounts = new Map<string, number>();
+  const capped: ScoredPineconeRecord<RecordMetadata>[] = [];
+
+  for (const match of matches) {
+    const page =
+      match.metadata?.pageNumber !== undefined &&
+      match.metadata?.pageNumber !== null
+        ? String(match.metadata.pageNumber)
+        : "__no_page__";
+
+    const currentCount = pageCounts.get(page) || 0;
+    if (currentCount >= RAG_MAX_CHUNKS_PER_PAGE) {
+      continue;
+    }
+
+    pageCounts.set(page, currentCount + 1);
+    capped.push(match);
+  }
+
+  return capped;
+}
+
 export type RetrievalDebugChunk = {
   id: string;
   score?: number;
@@ -48,7 +68,9 @@ export type QueryDBDebug = {
   finalMatchCount: number;
   scoreFilteredMatchCount: number;
   dedupedMatchCount: number;
+  pageCappedMatchCount: number;
   minScoreThreshold: number;
+  maxChunksPerPage: number;
   rerankUsed: boolean;
   chunks: RetrievalDebugChunk[];
 };
@@ -154,23 +176,26 @@ export const queryDBDetailed = async (
       });
 
       const uniqueMatches = dedupeMatches(scoreFilteredMatches);
+      const pageCappedMatches = capChunksPerPage(uniqueMatches);
 
-      if (uniqueMatches.length === 0) {
+      if (pageCappedMatches.length === 0) {
         return {
           context: "No matching results found to construct context.",
           debug: {
             initialMatchCount: response.matches.length,
             finalMatchCount: finalMatches.length,
             scoreFilteredMatchCount: scoreFilteredMatches.length,
-            dedupedMatchCount: 0,
+            dedupedMatchCount: uniqueMatches.length,
+            pageCappedMatchCount: 0,
             minScoreThreshold: RAG_MIN_RETRIEVAL_SCORE,
+            maxChunksPerPage: RAG_MAX_CHUNKS_PER_PAGE,
             rerankUsed,
             chunks: [],
           },
         };
       }
 
-      const formattedContext = uniqueMatches
+      const formattedContext = pageCappedMatches
         .map((match) => {
           const text = (match.metadata?.text as string) || "No text available";
           const pageNumber = match.metadata?.pageNumber as number | undefined;
@@ -197,9 +222,11 @@ export const queryDBDetailed = async (
           finalMatchCount: finalMatches.length,
           scoreFilteredMatchCount: scoreFilteredMatches.length,
           dedupedMatchCount: uniqueMatches.length,
+          pageCappedMatchCount: pageCappedMatches.length,
           minScoreThreshold: RAG_MIN_RETRIEVAL_SCORE,
+          maxChunksPerPage: RAG_MAX_CHUNKS_PER_PAGE,
           rerankUsed,
-          chunks: uniqueMatches.map((match) => ({
+          chunks: pageCappedMatches.map((match) => ({
             id: match.id,
             score: match.score,
             pageNumber: match.metadata?.pageNumber as number | undefined,
@@ -216,7 +243,9 @@ export const queryDBDetailed = async (
         finalMatchCount: 0,
         scoreFilteredMatchCount: 0,
         dedupedMatchCount: 0,
+        pageCappedMatchCount: 0,
         minScoreThreshold: RAG_MIN_RETRIEVAL_SCORE,
+        maxChunksPerPage: RAG_MAX_CHUNKS_PER_PAGE,
         rerankUsed: false,
         chunks: [],
       },
