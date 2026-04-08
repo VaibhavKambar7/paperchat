@@ -32,6 +32,16 @@ const NO_DOCUMENT_TEXT_FALLBACK =
 const NO_RELEVANT_CONTEXT_FALLBACK =
   "I couldn't find relevant information for this question in the document.";
 const RAG_MAX_CONTEXT_CHARS = getEnvInt("RAG_MAX_CONTEXT_CHARS", 14000, 1000);
+const RAG_MAX_PDF_CONTEXT_CHARS = getEnvInt(
+  "RAG_MAX_PDF_CONTEXT_CHARS",
+  9000,
+  1000,
+);
+const RAG_MAX_WEB_CONTEXT_CHARS = getEnvInt(
+  "RAG_MAX_WEB_CONTEXT_CHARS",
+  5000,
+  1000,
+);
 const RAG_MAX_FALLBACK_TEXT_CHARS = getEnvInt(
   "RAG_MAX_FALLBACK_TEXT_CHARS",
   14000,
@@ -175,11 +185,15 @@ export async function answerQuestion({
   const contextParts: string[] = [];
 
   if (hasRetrievedContext) {
-    contextParts.push(`DOCUMENT EXTRACTS:\n${retrievedContext}`);
+    const clampedPdfContext = clampText(
+      retrievedContext,
+      RAG_MAX_PDF_CONTEXT_CHARS,
+    );
+    contextParts.push(`DOCUMENT EXTRACTS:\n${clampedPdfContext}`);
   }
 
   if (webSearchContext) {
-    contextParts.push(webSearchContext);
+    contextParts.push(clampText(webSearchContext, RAG_MAX_WEB_CONTEXT_CHARS));
   }
 
   const context = clampText(contextParts.join("\n\n"), RAG_MAX_CONTEXT_CHARS);
