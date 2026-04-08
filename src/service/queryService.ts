@@ -7,6 +7,13 @@ import {
   RecordMetadata,
   ScoredPineconeRecord,
 } from "@pinecone-database/pinecone";
+import { getEnvFloat } from "@/lib/env";
+
+const RAG_MIN_RETRIEVAL_SCORE = getEnvFloat(
+  "RAG_MIN_RETRIEVAL_SCORE",
+  0,
+  -1,
+);
 
 function normalizeChunkText(text: string): string {
   return text.replace(/\s+/g, " ").trim().toLowerCase();
@@ -39,7 +46,9 @@ export type RetrievalDebugChunk = {
 export type QueryDBDebug = {
   initialMatchCount: number;
   finalMatchCount: number;
+  scoreFilteredMatchCount: number;
   dedupedMatchCount: number;
+  minScoreThreshold: number;
   rerankUsed: boolean;
   chunks: RetrievalDebugChunk[];
 };
@@ -139,7 +148,27 @@ export const queryDBDetailed = async (
         finalMatches = response.matches.slice(0, 5);
       }
 
-      const uniqueMatches = dedupeMatches(finalMatches);
+      const scoreFilteredMatches = finalMatches.filter((match) => {
+        if (typeof match.score !== "number") return true;
+        return match.score >= RAG_MIN_RETRIEVAL_SCORE;
+      });
+
+      const uniqueMatches = dedupeMatches(scoreFilteredMatches);
+
+      if (uniqueMatches.length === 0) {
+        return {
+          context: "No matching results found to construct context.",
+          debug: {
+            initialMatchCount: response.matches.length,
+            finalMatchCount: finalMatches.length,
+            scoreFilteredMatchCount: scoreFilteredMatches.length,
+            dedupedMatchCount: 0,
+            minScoreThreshold: RAG_MIN_RETRIEVAL_SCORE,
+            rerankUsed,
+            chunks: [],
+          },
+        };
+      }
 
       const formattedContext = uniqueMatches
         .map((match) => {
@@ -166,7 +195,9 @@ export const queryDBDetailed = async (
         debug: {
           initialMatchCount: response.matches.length,
           finalMatchCount: finalMatches.length,
+          scoreFilteredMatchCount: scoreFilteredMatches.length,
           dedupedMatchCount: uniqueMatches.length,
+          minScoreThreshold: RAG_MIN_RETRIEVAL_SCORE,
           rerankUsed,
           chunks: uniqueMatches.map((match) => ({
             id: match.id,
@@ -183,7 +214,9 @@ export const queryDBDetailed = async (
       debug: {
         initialMatchCount: 0,
         finalMatchCount: 0,
+        scoreFilteredMatchCount: 0,
         dedupedMatchCount: 0,
+        minScoreThreshold: RAG_MIN_RETRIEVAL_SCORE,
         rerankUsed: false,
         chunks: [],
       },

@@ -154,7 +154,9 @@ export async function answerQuestion({
   let retrievalDebug: QueryDBDebug = {
     initialMatchCount: 0,
     finalMatchCount: 0,
+    scoreFilteredMatchCount: 0,
     dedupedMatchCount: 0,
+    minScoreThreshold: 0,
     rerankUsed: false,
     chunks: [],
   };
