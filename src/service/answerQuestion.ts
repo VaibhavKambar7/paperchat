@@ -31,6 +31,8 @@ const NO_DOCUMENT_TEXT_FALLBACK =
   "No document text available to answer this question from the document.";
 const NO_RELEVANT_CONTEXT_FALLBACK =
   "I couldn't find relevant information for this question in the document.";
+const NO_EVIDENCE_GUARD_RESPONSE =
+  "I don't have enough relevant evidence from this document to answer that reliably. Please ask a question tied more closely to the document content.";
 const RAG_MAX_CONTEXT_CHARS = getEnvInt("RAG_MAX_CONTEXT_CHARS", 14000, 1000);
 const RAG_MAX_PDF_CONTEXT_CHARS = getEnvInt(
   "RAG_MAX_PDF_CONTEXT_CHARS",
@@ -57,6 +59,8 @@ const RAG_MAX_CHAT_HISTORY_CHARS = getEnvInt(
   50000,
   1000,
 );
+const RAG_ENABLE_NO_EVIDENCE_GUARD =
+  getEnvInt("RAG_ENABLE_NO_EVIDENCE_GUARD", 1, 0) === 1;
 
 function clampText(input: string, maxChars: number): string {
   if (input.length <= maxChars) return input;
@@ -197,6 +201,43 @@ export async function answerQuestion({
   }
 
   const context = clampText(contextParts.join("\n\n"), RAG_MAX_CONTEXT_CHARS);
+  const shouldUseNoEvidenceGuard =
+    RAG_ENABLE_NO_EVIDENCE_GUARD &&
+    document.embeddingsGenerated &&
+    !hasRetrievedContext &&
+    !webSearchContext;
+
+  if (shouldUseNoEvidenceGuard) {
+    const guardResponse = webSearchFailureNote
+      ? `${NO_EVIDENCE_GUARD_RESPONSE}\n\n${webSearchFailureNote}`
+      : NO_EVIDENCE_GUARD_RESPONSE;
+
+    response = guardResponse;
+    onChunk(guardResponse);
+
+    const updatedHistory = await persistChatHistory(
+      documentId,
+      userId,
+      chatHistory,
+      query,
+      response,
+    );
+
+    return {
+      response,
+      chatHistory: updatedHistory,
+      ...(debug
+        ? {
+            debug: {
+              retrieval: retrievalDebug,
+              usedContextualAnswering: false,
+              usedWebSearch: useWebSearch && Boolean(webSearchContext),
+              webSearchFailed: useWebSearch && Boolean(webSearchFailureNote),
+            },
+          }
+        : {}),
+    };
+  }
 
   try {
     if (context) {
