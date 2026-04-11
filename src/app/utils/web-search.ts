@@ -1,12 +1,8 @@
 import axios from "axios";
-import "dotenv/config";
 import { TAVILY_API_URL } from "./constants";
+import { getEnvInt } from "@/lib/env";
 
-const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
-
-if (!TAVILY_API_KEY) {
-  throw new Error("TAVILY_API_KEY is not set in environment variables.");
-}
+const TAVILY_TIMEOUT_MS = getEnvInt("TAVILY_TIMEOUT_MS", 8000, 1000);
 
 export interface TavilySnippet {
   title: string;
@@ -22,13 +18,21 @@ export interface TavilyResponse {
 }
 
 export async function webSearch(query: string): Promise<TavilyResponse> {
+  const tavilyApiKey = process.env.TAVILY_API_KEY;
+
+  if (!tavilyApiKey) {
+    throw new Error("Web search is not configured: missing TAVILY_API_KEY.");
+  }
+
   try {
     const { data } = await axios.post<TavilyResponse>(TAVILY_API_URL, {
-      api_key: TAVILY_API_KEY,
+      api_key: tavilyApiKey,
       query,
       include_answer: true,
       include_sources: true,
       max_results: 3,
+    }, {
+      timeout: TAVILY_TIMEOUT_MS,
     });
 
     return data;
