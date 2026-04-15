@@ -13,22 +13,34 @@ export async function POST(req: Request) {
     const auth = await requireAuth();
     if ("response" in auth) return auth.response;
 
-    const isAllowed = await checkQueryLimit(auth.userId);
-    if (!isAllowed) {
-      return apiError(
-        "Rate limit exceeded. Maximum 30 queries per 1 hour.",
-        "RATE_LIMIT_EXCEEDED",
-        429,
-      );
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return apiError("Invalid JSON body.", "INVALID_JSON_BODY", 400);
     }
 
-    const { query, documentId, useWebSearch, debug } = await req.json();
+    const { query, documentId, useWebSearch, debug } = (body || {}) as {
+      query?: string;
+      documentId?: string;
+      useWebSearch?: boolean;
+      debug?: boolean;
+    };
 
     if (!query || !documentId) {
       return apiError(
         "Query and Document ID are required.",
         "MISSING_QUERY_OR_DOCUMENT_ID",
         400,
+      );
+    }
+
+    const isAllowed = await checkQueryLimit(auth.userId);
+    if (!isAllowed) {
+      return apiError(
+        "Rate limit exceeded. Maximum 30 queries per 1 hour.",
+        "RATE_LIMIT_EXCEEDED",
+        429,
       );
     }
 
@@ -60,7 +72,7 @@ export async function POST(req: Request) {
             history: existingChatHistory,
             documentId,
             onChunk: onChunkCallback,
-            useWebSearch,
+            useWebSearch: Boolean(useWebSearch),
             debug: Boolean(debug),
           });
 
