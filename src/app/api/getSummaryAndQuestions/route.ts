@@ -14,7 +14,14 @@ export const POST = async (req: Request) => {
     const auth = await requireAuth();
     if ("response" in auth) return auth.response;
 
-    const { id } = await req.json();
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return apiError("Invalid JSON body.", "INVALID_JSON_BODY", 400);
+    }
+
+    const { id } = (body || {}) as { id?: string };
 
     if (!id) {
       return apiError("Document ID is required", "MISSING_DOCUMENT_ID", 400);

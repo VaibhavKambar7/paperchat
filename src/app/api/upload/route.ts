@@ -13,22 +13,33 @@ export async function POST(req: Request) {
     const auth = await requireAuth();
     if ("response" in auth) return auth.response;
 
-    const isAllowed = await checkUploadLimit(auth.userId);
-    if (!isAllowed) {
-      return apiError(
-        "Rate limit exceeded. Maximum 5 uploads per 24 hours.",
-        "RATE_LIMIT_EXCEEDED",
-        429,
-      );
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return apiError("Invalid JSON body.", "INVALID_JSON_BODY", 400);
     }
 
-    const { fileName, fileType, slug } = await req.json();
+    const { fileName, fileType, slug } = (body || {}) as {
+      fileName?: string;
+      fileType?: string;
+      slug?: string;
+    };
 
     if (!fileName || !fileType || !slug) {
       return apiError(
         "Missing required fields.",
         "MISSING_REQUIRED_FIELDS",
         400,
+      );
+    }
+
+    const isAllowed = await checkUploadLimit(auth.userId);
+    if (!isAllowed) {
+      return apiError(
+        "Rate limit exceeded. Maximum 5 uploads per 24 hours.",
+        "RATE_LIMIT_EXCEEDED",
+        429,
       );
     }
 

@@ -16,6 +16,20 @@ export async function POST(req: Request) {
     if ("response" in auth) return auth.response;
     userId = auth.userId;
 
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return apiError("Invalid JSON body.", "INVALID_JSON_BODY", 400);
+    }
+
+    const { id } = (body || {}) as { id?: string };
+    documentId = id ?? null;
+
+    if (!id) {
+      return apiError("Document ID is required.", "MISSING_DOCUMENT_ID", 400);
+    }
+
     const isAllowed = await checkUploadLimit(auth.userId);
     if (!isAllowed) {
       return apiError(
@@ -23,13 +37,6 @@ export async function POST(req: Request) {
         "RATE_LIMIT_EXCEEDED",
         429,
       );
-    }
-
-    const { id } = await req.json();
-    documentId = id;
-
-    if (!id) {
-      return apiError("Document ID is required.", "MISSING_DOCUMENT_ID", 400);
     }
 
     const document = await prisma.document.findFirst({
