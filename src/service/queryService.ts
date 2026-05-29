@@ -1,4 +1,7 @@
-import { getEmbeddingPipeline } from "@/app/utils/getEmbeddingPipeline";
+import {
+  getEmbeddingPipeline,
+  EMBEDDING_MODEL_NAME,
+} from "@/app/utils/getEmbeddingPipeline";
 import { index } from "./uploadService";
 import BM25 from "bm25";
 import { generateSparseVector } from "@/app/utils/bm25";
@@ -125,6 +128,9 @@ export const queryDBDetailed = async (
       sparseVector,
       includeValues: false,
       includeMetadata: true,
+      filter: {
+        embeddingModel: { $eq: EMBEDDING_MODEL_NAME },
+      },
     });
 
     console.log("Pinecone response matches:", response.matches.length);

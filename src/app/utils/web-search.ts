@@ -25,15 +25,19 @@ export async function webSearch(query: string): Promise<TavilyResponse> {
   }
 
   try {
-    const { data } = await axios.post<TavilyResponse>(TAVILY_API_URL, {
-      api_key: tavilyApiKey,
-      query,
-      include_answer: true,
-      include_sources: true,
-      max_results: 3,
-    }, {
-      timeout: TAVILY_TIMEOUT_MS,
-    });
+    const { data } = await axios.post<TavilyResponse>(
+      TAVILY_API_URL,
+      {
+        api_key: tavilyApiKey,
+        query,
+        include_answer: true,
+        include_sources: true,
+        max_results: 3,
+      },
+      {
+        timeout: TAVILY_TIMEOUT_MS,
+      },
+    );
 
     return data;
   } catch (error) {

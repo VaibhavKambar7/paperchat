@@ -43,3 +43,5 @@ next-env.d.ts
 log.txt
 
 scripts/chatcore/lib/python3.13/site-packages/
+
+/tasks

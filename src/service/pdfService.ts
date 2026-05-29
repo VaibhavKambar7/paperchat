@@ -5,7 +5,10 @@ import {
   MetadataMode,
   SentenceSplitter,
 } from "llamaindex";
-import { getEmbeddingPipeline } from "@/app/utils/getEmbeddingPipeline";
+import {
+  getEmbeddingPipeline,
+  EMBEDDING_MODEL_NAME,
+} from "@/app/utils/getEmbeddingPipeline";
 import * as dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
@@ -34,6 +37,7 @@ export type ChunkType = {
     context: string;
     sectionTitle?: string;
     pageNumber?: number;
+    embeddingModel: string;
   };
   embedding?: number[];
 };
@@ -179,6 +183,7 @@ export const chunkLlamaDocuments = async (
         pageNumber: pageNumber > 0 ? pageNumber : undefined,
         sectionTitle: headerPath || undefined,
         context: headerPath ? `Section: ${headerPath}` : "",
+        embeddingModel: EMBEDDING_MODEL_NAME,
       },
     });
   }

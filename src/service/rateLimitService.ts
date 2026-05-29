@@ -23,13 +23,18 @@ async function checkSlidingWindowLimit(
 
     const results = await pipeline.exec();
     if (!results || !results[2] || results[2][0]) {
-      console.error("Rate limit pipeline returned an unexpected result:", results);
+      console.error(
+        "Rate limit pipeline returned an unexpected result:",
+        results,
+      );
       return true;
     }
 
     const requestCount = Number(results[2][1]);
     if (Number.isNaN(requestCount)) {
-      console.error("Rate limit pipeline returned a non-numeric request count.");
+      console.error(
+        "Rate limit pipeline returned a non-numeric request count.",
+      );
       return true;
     }
 
