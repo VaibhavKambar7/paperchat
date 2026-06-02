@@ -2,7 +2,7 @@ import {
   getEmbeddingPipeline,
   EMBEDDING_MODEL_NAME,
 } from "@/app/utils/getEmbeddingPipeline";
-import { index } from "./uploadService";
+import { index, PINECONE_INDEX_NAME } from "./uploadService";
 import BM25 from "bm25";
 import { generateSparseVector } from "@/app/utils/bm25";
 import { CohereClient } from "cohere-ai";
@@ -76,6 +76,8 @@ export type QueryDBDebug = {
   maxChunksPerPage: number;
   rerankUsed: boolean;
   chunks: RetrievalDebugChunk[];
+  indexName: string,
+  indexQueriedAt: string,
 };
 
 export type QueryDBResult = {
@@ -197,6 +199,8 @@ export const queryDBDetailed = async (
             maxChunksPerPage: RAG_MAX_CHUNKS_PER_PAGE,
             rerankUsed,
             chunks: [],
+            indexName: PINECONE_INDEX_NAME,
+            indexQueriedAt: new Date().toISOString(),
           },
         };
       }
@@ -238,6 +242,8 @@ export const queryDBDetailed = async (
             pageNumber: match.metadata?.pageNumber as number | undefined,
             preview: String(match.metadata?.text ?? "").slice(0, 160),
           })),
+          indexName: PINECONE_INDEX_NAME,
+          indexQueriedAt: new Date().toISOString(),
         },
       };
     }
@@ -254,6 +260,8 @@ export const queryDBDetailed = async (
         maxChunksPerPage: RAG_MAX_CHUNKS_PER_PAGE,
         rerankUsed: false,
         chunks: [],
+        indexName: PINECONE_INDEX_NAME,
+        indexQueriedAt: new Date().toISOString(),
       },
     };
   } catch (error) {
