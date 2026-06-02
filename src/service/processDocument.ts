@@ -8,6 +8,7 @@ import {
   extractTextFromPDF,
 } from "@/service/pdfService";
 import { upsertData } from "@/service/uploadService";
+import crypto from "crypto";
 
 type ProcessDocumentInput = {
   documentId: string;
@@ -22,6 +23,7 @@ type ProcessDocumentResult = {
   chunksCount: number;
   documentId: string;
   embeddingsProcessed: boolean;
+  contentHash: string;
 };
 
 export async function processDocument({
@@ -29,6 +31,26 @@ export async function processDocument({
   userId,
   pdfBuffer,
 }: ProcessDocumentInput): Promise<ProcessDocumentResult> {
+  // hash the raw pdf buffer before calling llama parse.
+  const newHash = crypto.createHash("sha256").update(pdfBuffer).digest("hex");
+
+  const existingDocument = await prisma.document.findFirst({
+    where: { slug: documentId, userId },
+    select: { contentHash: true, extractedText: true },
+  });
+
+  if (existingDocument?.contentHash === newHash) {
+    return {
+      message: `Document ${documentId} has already been processed with the same content. Skipping re-processing.`,
+      text: existingDocument.extractedText ?? "",
+      tokenCount: 0,
+      chunksCount: 0,
+      documentId,
+      embeddingsProcessed: false,
+      contentHash: newHash,
+    };
+  }
+
   const {
     pagesData,
     totalPages,
@@ -69,6 +91,7 @@ export async function processDocument({
       extractedText: rawExtractedText,
       embeddingsGenerated: embeddingsProcessed,
       processingStatus: "DONE",
+      contentHash: newHash,
     },
   });
 
@@ -91,5 +114,6 @@ export async function processDocument({
     chunksCount: allFinalChunks.length,
     documentId,
     embeddingsProcessed,
+    contentHash: newHash,
   };
 }

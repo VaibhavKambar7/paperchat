@@ -55,6 +55,7 @@ model Document {
   User                User     @relation(fields: [userId], references: [id])
   chatHistory         Json[]
   embeddingsGenerated Boolean  @default(false)
+  contentHash         String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
